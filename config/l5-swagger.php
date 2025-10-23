@@ -14,6 +14,7 @@ return [
                  */
                 'api' => 'api/documentation',
             ],
+            'secure' => true,
             'paths' => [
                 /*
                  * Edit to include full URL in ui for assets
@@ -313,7 +314,8 @@ return [
          * Constants which can be used in annotations
          */
         'constants' => [
-            'L5_SWAGGER_CONST_HOST' => env('L5_SWAGGER_CONST_HOST', 'http://my-default-host.com'),
+            'L5_SWAGGER_CONST_HOST' => env('L5_SWAGGER_CONST_HOST', 'https://gestionnairebanque-6.onrender.com'),
+
         ],
     ],
 ];
