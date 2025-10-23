@@ -37,7 +37,7 @@ RUN npm install && npm run build
 RUN php artisan storage:link
 
 # Générer la clé d'application si elle n'existe pas
-RUN php artisan key:generate --no-interaction
+RUN if [ ! -f .env ]; then cp .env.example .env; fi && php artisan key:generate --no-interaction
 
 # Copier la configuration Nginx
 COPY nginx.conf /etc/nginx/sites-available/default
