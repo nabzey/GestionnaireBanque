@@ -1,21 +1,37 @@
-FROM php:8.1-apache
+# docker/php/Dockerfile
+FROM php:8.3-fpm
 
-# Installer les extensions PHP nécessaires pour PostgreSQL
-RUN apt-get update && apt-get install -y libpq-dev
-RUN docker-php-ext-install pdo pdo_pgsql
+# Installer les dépendances système
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    libpq-dev \
+    zip \
+    unzip \
+    nodejs \
+    npm \
+    && docker-php-ext-install pdo pdo_pgsql mbstring exif pcntl bcmath gd \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Copier les fichiers du projet
-COPY . /var/www/html
+# Installer Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Installer Composer et les dépendances
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+WORKDIR /var/www/html
+
+# Copier tout le projet dans le conteneur
+COPY . /var/www/html/
+
+# Définir les permissions appropriées
+RUN chown -R www-data:www-data /var/www/html
+
+# Installer les dépendances PHP
 RUN composer install --no-dev --optimize-autoloader
 
-# Permissions pour Laravel
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+# Installer les dépendances Node.js et construire les assets
+RUN npm install && npm run build
 
-# Exposer le port 80
-EXPOSE 80
-
-# Commande de démarrage
-CMD ["apache2-foreground"]
+# Créer le lien de stockage
+RUN php artisan storage:link
