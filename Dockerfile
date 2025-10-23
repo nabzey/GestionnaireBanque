@@ -36,6 +36,9 @@ RUN npm install && npm run build
 # Créer le lien de stockage
 RUN php artisan storage:link
 
+# Générer la clé d'application si elle n'existe pas
+RUN php artisan key:generate --no-interaction
+
 # Copier la configuration Nginx
 COPY nginx.conf /etc/nginx/sites-available/default
 
