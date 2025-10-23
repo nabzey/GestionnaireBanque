@@ -1,8 +1,8 @@
-# docker/php/Dockerfile
 FROM php:8.3-fpm
 
-# Installer les dépendances système
+# Installer Nginx et les dépendances système
 RUN apt-get update && apt-get install -y \
+    nginx \
     git \
     curl \
     libpng-dev \
@@ -35,3 +35,12 @@ RUN npm install && npm run build
 
 # Créer le lien de stockage
 RUN php artisan storage:link
+
+# Copier la configuration Nginx
+COPY nginx.conf /etc/nginx/sites-available/default
+
+# Exposer le port 80
+EXPOSE 80
+
+# Démarrer PHP-FPM et Nginx
+CMD service nginx start && php-fpm
