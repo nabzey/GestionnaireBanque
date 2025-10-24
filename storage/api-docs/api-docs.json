@@ -1,83 +1,416 @@
 {
-    "openapi": "3.0.0",
-    "info": {
-        "title": "Banque API",
-        "description": "API documentation for Banque application",
-        "version": "1.0.0"
-    },
-    "servers": [
-        {
-            "url": "http://localhost:8081",
-            "description": "API server"
-        }
-    ],
-    "paths": {
-        "/user": {
-            "get": {
-                "summary": "Get authenticated user",
-                "operationId": "ed7384d7b0315a693466a7528ac2c3a8",
-                "responses": {
-                    "200": {
-                        "description": "User data",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/User"
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        }
-    },
-    "components": {
-        "schemas": {
-            "User": {
-                "title": "User",
-                "description": "User model",
-                "properties": {
-                    "id": {
-                        "type": "integer",
-                        "example": 1
-                    },
-                    "name": {
-                        "type": "string",
-                        "example": "John Doe"
-                    },
-                    "email": {
-                        "type": "string",
-                        "format": "email",
-                        "example": "john@example.com"
-                    },
-                    "email_verified_at": {
-                        "type": "string",
-                        "format": "date-time",
-                        "nullable": true
-                    },
-                    "created_at": {
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "updated_at": {
-                        "type": "string",
-                        "format": "date-time"
-                    }
-                },
-                "type": "object"
-            }
-        },
-        "securitySchemes": {
-            "bearerAuth": {
-                "type": "http",
-                "bearerFormat": "JWT",
-                "scheme": "bearer"
-            }
-        }
+  "openapi": "3.0.3",
+  "info": {
+    "title": "API Banque - Gestion des Comptes",
+    "description": "API REST pour la gestion des comptes bancaires",
+    "version": "1.0.0",
+    "contact": {
+      "email": "support@banque.example.com"
     }
+  },
+  "servers": [
+    {
+      "url": "http://api.banque.example.com",
+      "description": "Serveur de production"
+    },
+    {
+      "url": "http://localhost:8000",
+      "description": "Serveur de développement"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/user": {
+      "get": {
+        "summary": "Get authenticated user",
+        "operationId": "ed7384d7b0315a693466a7528ac2c3a8",
+        "responses": {
+          "200": {
+            "description": "User data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/comptes": {
+      "get": {
+        "tags": ["Comptes"],
+        "summary": "Lister tous les comptes",
+        "description": "Récupère la liste paginée des comptes avec possibilité de filtrage et tri",
+        "operationId": "getComptes",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Numéro de page (défaut: 1)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Nombre d'éléments par page (défaut: 10, max: 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Filtrer par type de compte",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["cheque", "courant", "epargne"]
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Filtrer par statut",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["actif", "bloque", "ferme"]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche par titulaire ou numéro de compte",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Champ de tri",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["dateCreation", "solde", "titulaire"],
+              "default": "dateCreation"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "Ordre de tri",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["asc", "desc"],
+              "default": "desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des comptes récupérée avec succès",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComptesResponse"
+                },
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "id": "550e8400-e29b-41d4-a716-446655440000",
+                      "numeroCompte": "C00123456",
+                      "titulaire": "Amadou Diallo",
+                      "type": "epargne",
+                      "solde": 1250000,
+                      "devise": "FCFA",
+                      "dateCreation": "2023-03-15T00:00:00Z",
+                      "statut": "bloque",
+                      "motifBlocage": "Inactivité de 30+ jours",
+                      "metadata": {
+                        "derniereModification": "2023-06-10T14:30:00Z",
+                        "version": 1
+                      }
+                    }
+                  ],
+                  "pagination": {
+                    "currentPage": 1,
+                    "totalPages": 3,
+                    "totalItems": 25,
+                    "itemsPerPage": 10,
+                    "hasNext": true,
+                    "hasPrevious": false
+                  },
+                  "links": {
+                    "self": "/api/v1/comptes?page=1&limit=10",
+                    "next": "/api/v1/comptes?page=2&limit=10",
+                    "first": "/api/v1/comptes?page=1&limit=10",
+                    "last": "/api/v1/comptes?page=3&limit=10"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non autorisé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne du serveur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "title": "User",
+        "description": "User model",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "John Doe"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "john@example.com"
+          },
+          "email_verified_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "type": "object"
+      },
+      "ComptesResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Compte"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          },
+          "links": {
+            "$ref": "#/components/schemas/Links"
+          }
+        }
+      },
+      "Compte": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "numeroCompte": {
+            "type": "string",
+            "example": "C00123456"
+          },
+          "titulaire": {
+            "type": "string",
+            "example": "Amadou Diallo"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["cheque", "courant", "epargne"],
+            "example": "epargne"
+          },
+          "solde": {
+            "type": "number",
+            "format": "float",
+            "example": 1250000
+          },
+          "devise": {
+            "type": "string",
+            "enum": ["FCFA", "EUR", "USD"],
+            "example": "FCFA"
+          },
+          "dateCreation": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2023-03-15T00:00:00Z"
+          },
+          "statut": {
+            "type": "string",
+            "enum": ["actif", "bloque", "ferme"],
+            "example": "bloque"
+          },
+          "motifBlocage": {
+            "type": "string",
+            "nullable": true,
+            "example": "Inactivité de 30+ jours"
+          },
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "derniereModification": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2023-06-10T14:30:00Z"
+              },
+              "version": {
+                "type": "integer",
+                "example": 1
+              }
+            }
+          }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "currentPage": {
+            "type": "integer",
+            "example": 1
+          },
+          "totalPages": {
+            "type": "integer",
+            "example": 3
+          },
+          "totalItems": {
+            "type": "integer",
+            "example": 25
+          },
+          "itemsPerPage": {
+            "type": "integer",
+            "example": 10
+          },
+          "hasNext": {
+            "type": "boolean",
+            "example": true
+          },
+          "hasPrevious": {
+            "type": "boolean",
+            "example": false
+          }
+        }
+      },
+      "Links": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "type": "string",
+            "example": "/api/v1/comptes?page=1&limit=10"
+          },
+          "next": {
+            "type": "string",
+            "nullable": true,
+            "example": "/api/v1/comptes?page=2&limit=10"
+          },
+          "previous": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "first": {
+            "type": "string",
+            "example": "/api/v1/comptes?page=1&limit=10"
+          },
+          "last": {
+            "type": "string",
+            "example": "/api/v1/comptes?page=3&limit=10"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string",
+            "example": "Erreur de validation"
+          },
+          "errors": {
+            "type": "object",
+            "nullable": true
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
 }
