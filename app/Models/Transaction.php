@@ -6,9 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
-use App\Scopes\CompteScope;
 
-class Compte extends Model
+class Transaction extends Model
 {
     use HasFactory, SoftDeletes;
 
@@ -16,18 +15,20 @@ class Compte extends Model
     public $incrementing = false;
 
     protected $fillable = [
-        'numero',
-        'solde_initial',
-        'devise',
+        'reference',
         'type',
+        'montant',
+        'devise',
+        'description',
         'statut',
-        'motif_blocage',
+        'date_execution',
         'metadata',
-        'client_id',
+        'compte_id',
     ];
 
     protected $casts = [
-        'solde_initial' => 'decimal:2',
+        'montant' => 'decimal:2',
+        'date_execution' => 'datetime',
         'metadata' => 'array',
     ];
 
@@ -35,15 +36,12 @@ class Compte extends Model
     {
         parent::boot();
 
-        // Appliquer le scope global pour filtrer les comptes actifs
-        static::addGlobalScope(new CompteScope);
-
         static::creating(function ($model) {
             if (empty($model->id)) {
                 $model->id = (string) Str::uuid();
             }
-            if (empty($model->numero)) {
-                $model->numero = static::generateNumero();
+            if (empty($model->reference)) {
+                $model->reference = static::generateReference();
             }
             if (empty($model->metadata)) {
                 $model->metadata = [
@@ -61,36 +59,34 @@ class Compte extends Model
         });
     }
 
-    public static function generateNumero()
+    public static function generateReference()
     {
         do {
-            $numero = 'CPT-' . strtoupper(Str::random(8));
-        } while (self::where('numero', $numero)->exists());
+            $reference = 'TXN-' . strtoupper(Str::random(10));
+        } while (self::where('reference', $reference)->exists());
 
-        return $numero;
+        return $reference;
     }
 
-    public function client()
+    public function compte()
     {
-        return $this->belongsTo(Client::class);
-    }
-
-    public function transactions()
-    {
-        return $this->hasMany(Transaction::class);
+        return $this->belongsTo(Compte::class);
     }
 
     // Scopes locaux
-    public function scopeNumero($query, $numero)
+    public function scopeValidee($query)
     {
-        return $query->where('numero', $numero);
+        return $query->where('statut', 'validee');
     }
 
-    public function scopeClient($query, $telephone)
+    public function scopeType($query, $type)
     {
-        return $query->whereHas('client', function ($q) use ($telephone) {
-            $q->where('telephone', $telephone);
-        });
+        return $query->where('type', $type);
+    }
+
+    public function scopePeriode($query, $debut, $fin)
+    {
+        return $query->whereBetween('date_execution', [$debut, $fin]);
     }
 
     // Scope pour la pagination et les filtres
@@ -105,15 +101,15 @@ class Compte extends Model
             $query->where('statut', $filters['statut']);
         }
 
+        if (isset($filters['compte_id']) && $filters['compte_id']) {
+            $query->where('compte_id', $filters['compte_id']);
+        }
+
         if (isset($filters['search']) && $filters['search']) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('numero', 'like', "%{$search}%")
-                  ->orWhereHas('client', function ($clientQuery) use ($search) {
-                      $clientQuery->where('nom', 'like', "%{$search}%")
-                                  ->orWhere('prenom', 'like', "%{$search}%")
-                                  ->orWhere('email', 'like', "%{$search}%");
-                  });
+                $q->where('reference', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -123,21 +119,19 @@ class Compte extends Model
 
         // Mapping des champs de tri
         $sortMapping = [
-            'dateCreation' => 'created_at',
-            'solde' => 'solde_initial',
-            'titulaire' => 'client.nom',
+            'dateExecution' => 'date_execution',
+            'montant' => 'montant',
         ];
 
         $actualSortField = $sortMapping[$sortField] ?? $sortField;
 
-        if ($actualSortField === 'client.nom') {
-            $query->join('clients', 'comptes.client_id', '=', 'clients.id')
-                  ->orderBy('clients.nom', $sortOrder)
-                  ->select('comptes.*');
-        } else {
-            $query->orderBy($actualSortField, $sortOrder);
-        }
+        $query->orderBy($actualSortField, $sortOrder);
 
         return $query;
+    }
+
+    public function getMontantFormateAttribute()
+    {
+        return number_format($this->montant, 2, ',', ' ') . ' ' . $this->devise;
     }
 }

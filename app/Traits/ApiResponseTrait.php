@@ -60,7 +60,7 @@ trait ApiResponseTrait
     }
 
     /**
-     * Réponse avec pagination
+     * Réponse avec pagination et HATEOAS
      *
      * @param mixed $data
      * @param mixed $paginator
@@ -79,23 +79,79 @@ trait ApiResponseTrait
         ];
 
         $links = [
-            'self' => $paginator->url($paginator->currentPage()),
-            'first' => $paginator->url(1),
-            'last' => $paginator->url($paginator->lastPage()),
+            'self' => [
+                'href' => $paginator->url($paginator->currentPage()),
+                'method' => 'GET',
+                'rel' => 'self'
+            ],
+            'first' => [
+                'href' => $paginator->url(1),
+                'method' => 'GET',
+                'rel' => 'first'
+            ],
+            'last' => [
+                'href' => $paginator->url($paginator->lastPage()),
+                'method' => 'GET',
+                'rel' => 'last'
+            ],
         ];
 
         if ($paginator->hasMorePages()) {
-            $links['next'] = $paginator->nextPageUrl();
+            $links['next'] = [
+                'href' => $paginator->nextPageUrl(),
+                'method' => 'GET',
+                'rel' => 'next'
+            ];
         }
 
         if ($paginator->currentPage() > 1) {
-            $links['previous'] = $paginator->previousPageUrl();
+            $links['previous'] = [
+                'href' => $paginator->previousPageUrl(),
+                'method' => 'GET',
+                'rel' => 'previous'
+            ];
+        }
+
+        // Ajouter des liens HATEOAS pour les actions sur les comptes individuels
+        $embedded = [];
+        foreach ($data as $compte) {
+            $embedded[] = [
+                'id' => $compte->id,
+                'numeroCompte' => $compte->numero,
+                'titulaire' => $compte->client ? $compte->client->nom_complet : null,
+                'type' => $compte->type,
+                'solde' => $compte->solde_initial,
+                'devise' => $compte->devise,
+                'dateCreation' => $compte->created_at->toISOString(),
+                'statut' => $compte->statut,
+                'motifBlocage' => $compte->motif_blocage,
+                'metadata' => $compte->metadata,
+                '_links' => [
+                    'self' => [
+                        'href' => url('/api/v1/comptes/' . $compte->id),
+                        'method' => 'GET',
+                        'rel' => 'self'
+                    ],
+                    'update' => [
+                        'href' => url('/api/v1/comptes/' . $compte->id),
+                        'method' => 'PUT',
+                        'rel' => 'update'
+                    ],
+                    'delete' => [
+                        'href' => url('/api/v1/comptes/' . $compte->id),
+                        'method' => 'DELETE',
+                        'rel' => 'delete'
+                    ]
+                ]
+            ];
         }
 
         $responseData = [
-            'data' => $data,
+            '_links' => $links,
+            '_embedded' => [
+                'comptes' => $embedded
+            ],
             'pagination' => $pagination,
-            'links' => $links,
         ];
 
         return $this->successResponse($responseData, $message);

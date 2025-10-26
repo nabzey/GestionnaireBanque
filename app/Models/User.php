@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Hash;
 use Laravel\Passport\HasApiTokens;
 
 /**
@@ -59,10 +60,173 @@ class User extends Authenticatable
     ];
 
     /**
-     * Relation avec les comptes
+     * Relation polymorphique vers Admin ou Client
      */
-    public function comptes()
+    public function userable()
     {
-        return $this->hasMany(Compte::class);
+        return $this->morphTo();
+    }
+
+    /**
+     * Vérifier si l'utilisateur est un admin
+     */
+    public function isAdmin(): bool
+    {
+        return $this->userable_type === 'admin';
+    }
+
+    /**
+     * Vérifier si l'utilisateur est un client
+     */
+    public function isClient(): bool
+    {
+        return $this->userable_type === 'client';
+    }
+
+    /**
+     * Obtenir l'admin associé (si applicable)
+     */
+    public function admin()
+    {
+        if ($this->isAdmin()) {
+            // Pour admin, on peut retourner des infos fictives ou null
+            return (object) [
+                'id' => $this->userable_id,
+                'name' => $this->name,
+                'email' => $this->email,
+            ];
+        }
+        return null;
+    }
+
+    /**
+     * Obtenir le client associé (si applicable)
+     */
+    public function client()
+    {
+        return $this->belongsTo(Client::class, 'userable_id');
+    }
+
+    /**
+     * Vérifier si l'utilisateur a un rôle spécifique
+     */
+    public function hasRole(string $role): bool
+    {
+        return match($role) {
+            'admin' => $this->isAdmin(),
+            'client' => $this->isClient(),
+            default => false,
+        };
+    }
+
+    /**
+     * Authentifier un utilisateur et générer un token
+     */
+    public static function authenticate(array $credentials): ?array
+    {
+        $user = self::where('email', $credentials['email'])->first();
+
+        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+            return null;
+        }
+
+        // Créer le token Passport
+        $token = $user->createToken('API Token')->accessToken;
+
+        // Déterminer le rôle
+        $role = $user->isAdmin() ? 'admin' : 'client';
+
+        // Récupérer les informations du profil
+        $profile = null;
+        if ($user->isAdmin()) {
+            $profile = $user->admin;
+        } elseif ($user->isClient()) {
+            $profile = $user->client;
+        }
+
+        return [
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $role,
+                'profile' => $profile,
+            ],
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+        ];
+    }
+
+    /**
+     * Créer un nouveau client avec son compte utilisateur
+     */
+    public static function registerClient(array $data): array
+    {
+        // Créer le client
+        $client = \App\Models\Client::create([
+            'nom' => $data['nom'],
+            'prenom' => $data['prenom'],
+            'email' => $data['email'],
+            'telephone' => $data['telephone'],
+        ]);
+
+        // Créer l'utilisateur
+        $user = self::create([
+            'name' => $data['prenom'] . ' ' . $data['nom'],
+            'email' => $data['email'],
+            'password' => Hash::make($data['password']),
+            'email_verified_at' => now(),
+            'userable_type' => 'client',
+            'userable_id' => $client->id,
+        ]);
+
+        // Créer le token
+        $token = $user->createToken('API Token')->accessToken;
+
+        return [
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => 'client',
+                'profile' => $client,
+            ],
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+        ];
+    }
+
+    /**
+     * Révoquer le token actuel de l'utilisateur
+     */
+    public function revokeCurrentToken(): bool
+    {
+        $this->token()->revoke();
+        return true;
+    }
+
+    /**
+     * Obtenir les informations complètes de l'utilisateur
+     */
+    public function getFullInfo(): array
+    {
+        $role = $this->isAdmin() ? 'admin' : 'client';
+
+        $profile = null;
+        if ($this->isAdmin()) {
+            $profile = $this->admin;
+        } elseif ($this->isClient()) {
+            $profile = $this->client;
+        }
+
+        return [
+            'user' => [
+                'id' => $this->id,
+                'name' => $this->name,
+                'email' => $this->email,
+                'role' => $role,
+                'profile' => $profile,
+            ],
+        ];
     }
 }

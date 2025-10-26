@@ -1,41 +1,50 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Models\User;
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompteController;
+use App\Http\Controllers\Api\V1\TransactionController;
+use App\Http\Controllers\UserController;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
-*/
+Route::prefix('v1/zeynab-ba')->group(function () {
 
-// Routes API version 1
-Route::prefix('v1')->group(function () {
-    /**
-     * Lister tous les comptes
-     *
-     * GET /api/v1/comptes
-     *
-     * Query Parameters:
-     * - page: Numéro de page (default: 1)
-     * - limit: Nombre d'éléments par page (default: 10, max: 100)
-     * - type: Filtrer par type (epargne, cheque)
-     * - statut: Filtrer par statut (actif, bloque, ferme)
-     * - search: Recherche par titulaire ou numéro
-     * - sort: Tri (dateCreation, solde, titulaire)
-     * - order: Ordre (asc, desc)
-     */
-    Route::get('/comptes', [CompteController::class, 'index'])
+    // ✅ AUTHENTIFICATION
+    Route::controller(AuthController::class)
+        ->prefix('auth')
         ->middleware(['throttle:60,1'])
-        ->name('api.v1.comptes.index');
+        ->group(function () {
+
+            Route::post('login', 'login')->name('api.v1.auth.login');           // Connexion
+            Route::post('register', 'register')->name('api.v1.auth.register'); // Inscription client
+            Route::post('logout', 'logout')->middleware('auth:api')->name('api.v1.auth.logout'); // Déconnexion
+            Route::get('user', 'user')->middleware('auth:api')->name('api.v1.auth.user');       // Utilisateur connecté
+        });
+
+    // Routes protégées (nécessitent authentification)
+
+    // ✅ ROUTES COMPTES (protégées)
+    Route::controller(CompteController::class)
+        ->prefix('comptes')
+        ->middleware(['auth:api', 'throttle:60,1'])
+        ->group(function () {
+
+            Route::get('/', 'index')->name('api.v1.comptes.index');           // Liste des comptes
+            Route::post('/', 'store')->middleware('role:admin')->name('api.v1.comptes.store');  // Création (Admin)
+            Route::get('/{id}', 'show')->name('api.v1.comptes.show');         // Afficher un compte
+            Route::put('/{id}', 'update')->middleware('role:admin')->name('api.v1.comptes.update'); // Modifier (Admin)
+            Route::delete('/{id}', 'destroy')->middleware('role:admin')->name('api.v1.comptes.destroy'); // Supprimer (Admin)
+        });
+
+    // ✅ ARCHIVES (Admin seulement)
+    Route::get('comptes-archives', [CompteController::class, 'archives'])
+        ->middleware(['auth:api', 'role:admin', 'throttle:60,1'])
+        ->name('api.v1.comptes.archives');
+
+    // ✅ TRANSACTIONS (protégées)
+    Route::get('transactions', [TransactionController::class, 'index'])
+        ->middleware(['auth:api', 'throttle:60,1'])
+        ->name('api.v1.transactions.index');
 });
 
-Route::middleware('auth:api')->get('/user', [UserController::class, 'getUser']);
+// ✅ UTILISATEUR CONNECTÉ
+// Route::middleware('auth:api')->get('/user', [UserController::class, 'getUser']);

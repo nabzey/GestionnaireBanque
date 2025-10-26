@@ -49,9 +49,11 @@ class CompteSeeder extends Seeder
         ];
 
         foreach ($comptes as $compteData) {
-            \App\Models\Admin::factory()->create([
-                'name' => $faker->name(),
+            \App\Models\Client::factory()->create([
+                'nom' => $faker->lastName(),
+                'prenom' => $faker->firstName(),
                 'email' => $faker->unique()->safeEmail(),
+                'telephone' => $faker->unique()->phoneNumber(),
             ])->comptes()->create($compteData);
         }
 

@@ -21,10 +21,11 @@ return new class extends Migration
             $table->text('motif_blocage')->nullable();
             $table->json('metadata')->nullable();
             $table->softDeletes();
-            $table->foreignId('admin_id')->constrained('admins')->onDelete('cascade');
+            $table->uuid('client_id');
+            $table->foreign('client_id')->references('id')->on('clients')->onDelete('cascade');
             $table->timestamps();
 
-            $table->index(['admin_id', 'type']);
+            $table->index(['client_id', 'type']);
             $table->index('numero');
             $table->index('devise');
             $table->index('statut');

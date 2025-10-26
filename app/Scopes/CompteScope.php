@@ -17,7 +17,8 @@ class CompteScope implements Scope
      */
     public function apply(Builder $builder, Model $model): void
     {
-        // Les comptes non supprimés sont automatiquement gérés par SoftDeletes
-        // Ce scope pourrait être étendu pour d'autres filtres globaux si nécessaire
+        // Filtrer uniquement les comptes actifs et non supprimés
+        $builder->where('statut', 'actif')
+                ->whereIn('type', ['cheque', 'epargne']);
     }
 }
