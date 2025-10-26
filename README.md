@@ -1,535 +1,680 @@
-# 🏦 API Banque - Gestion des Comptes
+# 🏦 API Banque - Système Bancaire Complet
 
-Une API REST Laravel pour la gestion complète des comptes bancaires avec authentification, pagination, filtrage et documentation OpenAPI.
+## 📋 Description
 
-## 📋 Table des Matières
+Une API REST complète pour un système bancaire moderne développée avec Laravel 11.x, utilisant Laravel Passport pour l'authentification OAuth2. L'API gère les clients, comptes bancaires et transactions avec une architecture sécurisée et scalable.
 
-- [Fonctionnalités](#-fonctionnalités)
-- [Technologies Utilisées](#-technologies-utilisées)
-- [Architecture](#-architecture)
-- [Installation](#-installation)
-- [Configuration](#-configuration)
-- [API Endpoints](#-api-endpoints)
-- [Authentification](#-authentification)
-- [Base de Données](#-base-de-données)
-- [Tests](#-tests)
-- [Documentation](#-documentation)
-- [Sécurité](#-sécurité)
+## 🚀 Fonctionnalités Principales
 
-## ✨ Fonctionnalités
+### 👥 Gestion des Clients
+- **CRUD complet** : Création, lecture, mise à jour, suppression
+- **UUID comme clé primaire** pour sécurité renforcée
+- **Soft deletes** pour archivage logique
+- **Profils complets** : nom, prénom, email, téléphone, adresse, etc.
+- **Statuts** : actif, inactif, suspendu
 
-### Comptes Bancaires
-- ✅ **CRUD complet** des comptes bancaires
-- ✅ **UUID comme clé primaire** pour sécurité renforcée
-- ✅ **Génération automatique** du numéro de compte (format: CPT-XXXXXXXX)
-- ✅ **Soft Deletes** pour archivage des comptes
-- ✅ **Statuts** : actif, bloqué, fermé
-- ✅ **Types** : chèque, courant, épargne
-- ✅ **Devises** : FCFA, EUR, USD
-- ✅ **Métadonnées** avec versioning automatique
+### 💳 Gestion des Comptes
+- **Types de comptes** : Chèque, Courant, Épargne
+- **Filtrage automatique** : Comptes actifs uniquement (type chèque/épargne)
+- **Numéros uniques** générés automatiquement (format: CPT-XXXXXXXX)
+- **Gestion des statuts** : actif, bloqué, fermé
+- **Soft deletes** avec archivage
+- **Liens avec clients** via relations Eloquent
 
-### API REST
-- ✅ **Versionnement** (v1) des endpoints
-- ✅ **Pagination** avec métadonnées complètes
-- ✅ **Filtrage avancé** par type, statut, recherche
-- ✅ **Tri multi-colonnes** (date, solde, titulaire)
-- ✅ **Format de réponse standardisé**
-- ✅ **Gestion d'erreurs** personnalisée
-- ✅ **Rate Limiting** avec logging
+### 💸 Gestion des Transactions
+- **Types** : Dépôt, Retrait, Virement, Transfert
+- **Références uniques** générées automatiquement
+- **Montants avec devises** multiples (FCFA, EUR, USD)
+- **Statuts** : En attente, Validée, Rejetée, Annulée
+- **Historique complet** avec dates d'exécution
 
-### Sécurité & Performance
-- ✅ **Authentification OAuth2** (Laravel Passport avec modèle Admin)
-- ✅ **CORS configuré** pour les applications frontend
-- ✅ **Middleware personnalisé** pour monitoring des rate limits
-- ✅ **Validation stricte** des données d'entrée
-- ✅ **Logs détaillés** des accès et erreurs
+### 🔐 Authentification & Autorisation
+- **Laravel Passport** pour OAuth2
+- **Rôles différenciés** :
+  - **Admin** : Accès complet à toutes les ressources
+  - **Client** : Accès limité à ses propres données
+- **Middleware personnalisé** pour contrôle des rôles
+- **Rate limiting** : 60 requêtes/minute
 
-## 🛠 Technologies Utilisées
+### 📊 API Avancée
+- **Pagination HATEOAS** avec liens de navigation
+- **Filtrage et recherche** avancés
+- **Tri multiple** sur tous les champs
+- **Réponses JSON structurées**
+- **Gestion d'erreurs** complète
+- **Documentation Swagger/OpenAPI**
 
-### Backend
-- **Laravel 11** - Framework PHP moderne
-- **PHP 8.2+** - Langage de programmation
-- **MySQL/PostgreSQL** - Base de données relationnelle
+---
 
-### Authentification & Sécurité
-- **Laravel Passport** - OAuth2 server complet pour l'authentification API
-- **UUID** - Identifiants uniques sécurisés
-- **Rate Limiting** - Protection contre les abus
-
-### Architecture API
-- **RESTful Design** - Architecture REST standard
-- **API Versioning** - Gestion des versions (v1)
-- **OpenAPI 3.0** - Documentation automatique
-- **JSON:API** - Format de réponse standardisé
-
-### Outils de Développement
-- **Composer** - Gestionnaire de dépendances PHP
-- **Artisan** - Interface en ligne de commande Laravel
-- **Migrations** - Gestion du schéma de base de données
-- **Seeders & Factories** - Génération de données de test
-
-## 🏗 Architecture
-
-### Structure des Dossiers
-```
-app/
-├── Exceptions/           # Exceptions personnalisées
-│   └── CompteException.php
-├── Http/
-│   ├── Controllers/Api/V1/  # Controllers API versionnés
-│   │   └── CompteController.php
-│   ├── Middleware/       # Middlewares personnalisés
-│   │   └── RatingMiddleware.php
-│   ├── Requests/         # Classes de validation
-│   │   └── StoreCompteRequest.php
-│   └── Resources/        # Transformation des données
-│       └── CompteResource.php
-├── Models/               # Modèles Eloquent
-│   └── Compte.php
-├── Scopes/               # Scopes de requête globaux
-│   └── CompteScope.php
-└── Traits/               # Traits réutilisables
-    └── ApiResponseTrait.php
-
-database/
-├── factories/            # Factories pour tests
-│   └── CompteFactory.php
-├── migrations/           # Migrations de base de données
-│   └── create_comptes_table.php
-└── seeders/              # Seeders de données
-    └── CompteSeeder.php
-
-routes/
-└── api.php               # Routes API versionnées
-
-storage/api-docs/
-└── api-docs.json         # Documentation OpenAPI
-```
-
-### Patterns Architecturaux
-
-#### 1. **Repository Pattern** (Implicite via Eloquent)
-- Utilisation directe d'Eloquent ORM
-- Requêtes optimisées avec eager loading
-- Scopes pour logique métier réutilisable
-
-#### 2. **API Resource Pattern**
-- Transformation des données via `CompteResource`
-- Format de réponse standardisé
-- Séparation claire entre logique métier et présentation
-
-#### 3. **Middleware Pattern**
-- `RatingMiddleware` pour monitoring des rate limits
-- Gestion centralisée des préoccupations transversales
-- Logging automatique des événements de sécurité
-
-#### 4. **Exception Handling Pattern**
-- `CompteException` avec méthodes statiques
-- Gestion d'erreurs métier spécifique
-- Messages d'erreur contextualisés
-
-#### 5. **Trait Pattern**
-- `ApiResponseTrait` pour format de réponse uniforme
-- Réutilisabilité du code de réponse API
-- Méthodes helper pour succès/erreur/pagination
-
-## 🚀 Installation
+## 🛠️ Installation & Configuration
 
 ### Prérequis
-- PHP 8.2 ou supérieur
+- PHP 8.1+
 - Composer
 - MySQL/PostgreSQL
-- Node.js & npm (pour assets frontend)
+- Laravel 11.x
 
-### Étapes d'Installation
+### Installation
 
-1. **Cloner le repository**
 ```bash
+# Cloner le repository
 git clone <repository-url>
-cd banque
-```
+cd banque-api
 
-2. **Installer les dépendances PHP**
-```bash
+# Installer les dépendances
 composer install
-```
 
-3. **Configuration de l'environnement**
-```bash
+# Configuration de l'environnement
 cp .env.example .env
 php artisan key:generate
-```
 
-4. **Configuration de la base de données**
-```bash
-# Modifier .env avec vos credentials DB
+# Configuration de la base de données dans .env
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=banque
+DB_DATABASE=banque_api
 DB_USERNAME=votre_username
 DB_PASSWORD=votre_password
-```
 
-5. **Migration et seeding**
-```bash
+# Migration et seeding
 php artisan migrate
 php artisan db:seed
-```
 
-6. **Démarrer le serveur**
-```bash
+# Installation de Passport
+php artisan passport:install
+
+# Démarrage du serveur
 php artisan serve
 ```
 
-## ⚙️ Configuration
+### Configuration Passport
 
-### Variables d'Environnement (.env)
-
-```env
-# Application
-APP_NAME="API Banque"
-APP_ENV=local
-APP_KEY=base64:generated-key
-APP_DEBUG=true
-APP_URL=http://localhost
-
-# Base de Données
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=banque
-DB_USERNAME=user
-DB_PASSWORD=password
-
-# Cache & Session
-CACHE_DRIVER=file
-SESSION_DRIVER=file
-
-# Sanctum (Authentification API)
-SANCTUM_STATEFUL_DOMAINS=localhost,127.0.0.1
-
-# CORS
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
-```
-
-### Configuration CORS (config/cors.php)
-
-```php
-return [
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
-    'allowed_methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    'allowed_origins' => ['http://localhost:3000', 'http://localhost:8080', 'https://banque.example.com'],
-    'allowed_headers' => ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-    'exposed_headers' => ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
-    'max_age' => 86400,
-    'supports_credentials' => true,
-];
-```
-
-## 📡 API Endpoints
-
-### Base URL
-```
-http://localhost:8000/api/v1
-```
-
-### Authentication
-Tous les endpoints nécessitent un token Bearer :
-```
-Authorization: Bearer {token}
-```
-
-### Comptes - Lister tous les comptes
-
-**GET** `/api/v1/comptes`
-
-#### Paramètres de requête
-| Paramètre | Type | Défaut | Description |
-|-----------|------|--------|-------------|
-| `page` | integer | 1 | Numéro de page |
-| `limit` | integer | 10 | Éléments par page (max: 100) |
-| `type` | string | - | Filtre par type (cheque, courant, epargne) |
-| `statut` | string | - | Filtre par statut (actif, bloque, ferme) |
-| `search` | string | - | Recherche par titulaire ou numéro |
-| `sort` | string | dateCreation | Tri (dateCreation, solde, titulaire) |
-| `order` | string | desc | Ordre (asc, desc) |
-
-#### Exemple de requête
 ```bash
-GET /api/v1/comptes?page=1&limit=10&type=epargne&statut=actif&sort=dateCreation&order=desc
-Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...
+# Créer les clés OAuth2
+php artisan passport:install
+
+# Les clients API seront créés automatiquement
+# Client ID et Secret disponibles dans la table oauth_clients
 ```
 
-#### Réponse de succès (200)
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "numeroCompte": "CPT-CHQ001",
-      "titulaire": "Amadou Diallo",
-      "type": "epargne",
-      "solde": 500000,
-      "devise": "FCFA",
-      "dateCreation": "2023-03-15T00:00:00Z",
-      "statut": "actif",
-      "motifBlocage": null,
-      "metadata": {
-        "derniereModification": "2023-06-10T14:30:00Z",
-        "version": 1
-      }
-    }
-  ],
-  "pagination": {
-    "currentPage": 1,
-    "totalPages": 3,
-    "totalItems": 25,
-    "itemsPerPage": 10,
-    "hasNext": true,
-    "hasPrevious": false
-  },
-  "links": {
-    "self": "/api/v1/comptes?page=1&limit=10",
-    "next": "/api/v1/comptes?page=2&limit=10",
-    "first": "/api/v1/comptes?page=1&limit=10",
-    "last": "/api/v1/comptes?page=3&limit=10"
-  }
-}
+---
+
+## 📚 Architecture & Structure
+
+### 📁 Structure des Dossiers
+
+```
+app/
+├── Http/
+│   ├── Controllers/Api/V1/
+│   │   ├── CompteController.php
+│   │   └── TransactionController.php
+│   ├── Middleware/
+│   │   └── RoleMiddleware.php
+│   ├── Requests/
+│   │   └── StoreClientRequest.php
+│   └── Resources/
+│       ├── CompteResource.php
+│       └── TransactionResource.php
+├── Models/
+│   ├── Client.php
+│   ├── Compte.php
+│   └── Transaction.php
+├── Scopes/
+│   └── CompteScope.php
+└── Traits/
+    └── ApiResponseTrait.php
+
+database/
+├── factories/
+│   ├── ClientFactory.php
+│   ├── CompteFactory.php
+│   └── TransactionFactory.php
+├── migrations/
+│   ├── create_clients_table.php
+│   ├── create_comptes_table.php
+│   ├── create_transactions_table.php
+│   └── modify_comptes_table_change_foreign_key_to_client.php
+└── seeders/
+    ├── ClientSeeder.php
+    ├── CompteSeeder.php
+    └── TransactionSeeder.php
+
+routes/
+└── api.php
 ```
 
-## 🔐 Authentification
+### 🗄️ Schéma Base de Données
 
-### Laravel Passport
-L'API utilise Laravel Passport pour l'authentification OAuth2 complète.
+#### Table `clients`
+```sql
+- id (UUID, Primary Key)
+- nom (VARCHAR)
+- prenom (VARCHAR)
+- email (VARCHAR, UNIQUE)
+- telephone (VARCHAR, UNIQUE)
+- date_naissance (DATE, NULLABLE)
+- adresse (VARCHAR, NULLABLE)
+- ville (VARCHAR, NULLABLE)
+- pays (VARCHAR, DEFAULT 'Sénégal')
+- statut (ENUM: actif, inactif, suspendu)
+- metadata (JSON, NULLABLE)
+- deleted_at (TIMESTAMP, NULLABLE)
+- created_at (TIMESTAMP)
+- updated_at (TIMESTAMP)
 
-#### Obtenir un Personal Access Token
-```bash
-# Via Tinker
-php artisan tinker
->>> $user = App\Models\User::find(1);
->>> $token = $user->createToken('API Token')->accessToken;
-
-# Ou via API (nécessite une route dédiée)
-POST /oauth/token
-Content-Type: application/json
-
-{
-  "grant_type": "password",
-  "client_id": "your-client-id",
-  "client_secret": "your-client-secret",
-  "username": "user@example.com",
-  "password": "password",
-  "scope": "*"
-}
+INDEXES: (nom, prenom), email, telephone, statut
 ```
-
-#### Utiliser le token
-```bash
-Authorization: Bearer {access_token}
-```
-
-## 🗄️ Base de Données
-
-### Schéma des tables
 
 #### Table `comptes`
 ```sql
-CREATE TABLE comptes (
-  id CHAR(36) PRIMARY KEY,
-  numero VARCHAR(255) UNIQUE NOT NULL,
-  solde_initial DECIMAL(15,2) DEFAULT 0,
-  devise VARCHAR(255) DEFAULT 'FCFA',
-  type VARCHAR(255) DEFAULT 'cheque',
-  statut ENUM('actif', 'bloque', 'ferme') DEFAULT 'actif',
-  motif_blocage TEXT NULL,
-  metadata JSON NULL,
-  user_id CHAR(36) NOT NULL,
-  created_at TIMESTAMP NULL,
-  updated_at TIMESTAMP NULL,
-  deleted_at TIMESTAMP NULL,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  INDEX idx_user_type (user_id, type),
-  INDEX idx_numero (numero),
-  INDEX idx_devise (devise),
-  INDEX idx_statut (statut)
-);
+- id (UUID, Primary Key)
+- numero (VARCHAR, UNIQUE)
+- solde_initial (DECIMAL 15,2)
+- devise (VARCHAR, DEFAULT 'FCFA')
+- type (ENUM: cheque, courant, epargne)
+- statut (ENUM: actif, bloque, ferme)
+- motif_blocage (TEXT, NULLABLE)
+- metadata (JSON, NULLABLE)
+- client_id (BIGINT, FOREIGN KEY -> clients.id)
+- deleted_at (TIMESTAMP, NULLABLE)
+- created_at (TIMESTAMP)
+- updated_at (TIMESTAMP)
+
+INDEXES: (client_id, type), numero, devise, statut
 ```
 
-### Migrations
-```bash
-# Créer une nouvelle migration
-php artisan make:migration add_new_field_to_comptes_table
+#### Table `transactions`
+```sql
+- id (UUID, Primary Key)
+- reference (VARCHAR, UNIQUE)
+- type (ENUM: depot, retrait, virement, transfert)
+- montant (DECIMAL 15,2)
+- devise (VARCHAR, DEFAULT 'FCFA')
+- description (TEXT, NULLABLE)
+- statut (ENUM: en_attente, validee, rejete, annulee)
+- date_execution (TIMESTAMP, NULLABLE)
+- metadata (JSON, NULLABLE)
+- compte_id (BIGINT, FOREIGN KEY -> comptes.id)
+- deleted_at (TIMESTAMP, NULLABLE)
+- created_at (TIMESTAMP)
+- updated_at (TIMESTAMP)
 
-# Exécuter les migrations
-php artisan migrate
-
-# Rollback
-php artisan migrate:rollback
+INDEXES: (compte_id, type), reference, statut, date_execution
 ```
 
-### Seeders & Factories
+---
 
-#### Générer des données de test
+## 🌐 API Endpoints
+
+### Base URL
+```
+http://localhost:8000/api/v1/zeynab-ba
+```
+
+### 🔑 Authentification
+Tous les endpoints nécessitent un token Bearer OAuth2 :
+```
+Authorization: Bearer {access_token}
+```
+
+---
+
+## 💳 1. GESTION DES COMPTES
+
+### `GET /comptes` - Liste des comptes actifs
+**Description** : Récupère la liste des comptes actifs (filtrés automatiquement)
+
+**Authentification** : Requise
+- **Admin** : Voit tous les comptes
+- **Client** : Voit uniquement ses comptes
+
+**Paramètres de requête** :
+```javascript
+{
+  "page": 1,           // Numéro de page (défaut: 1)
+  "limit": 10,         // Éléments par page (max: 100, défaut: 10)
+  "type": "cheque",    // Filtrer par type (cheque, epargne)
+  "statut": "actif",   // Filtrer par statut (actif, bloque, ferme)
+  "search": "amadou",  // Recherche par titulaire ou numéro
+  "sort": "created_at", // Tri (dateCreation, solde, titulaire)
+  "order": "desc"      // Ordre (asc, desc)
+}
+```
+
+**Réponse** :
+```json
+{
+  "success": true,
+  "data": {
+    "_links": {
+      "self": {"href": "http://localhost:8000/api/v1/zeynab-ba/comptes?page=1", "method": "GET"},
+      "first": {"href": "http://localhost:8000/api/v1/zeynab-ba/comptes?page=1", "method": "GET"},
+      "last": {"href": "http://localhost:8000/api/v1/zeynab-ba/comptes?page=3", "method": "GET"}
+    },
+    "_embedded": {
+      "comptes": [
+        {
+          "id": "uuid-compte-1",
+          "numeroCompte": "CPT-CHQ001",
+          "titulaire": "Amadou Diop",
+          "type": "cheque",
+          "solde": 500000,
+          "devise": "FCFA",
+          "dateCreation": "2025-01-15T10:30:00.000000Z",
+          "statut": "actif",
+          "motifBlocage": null,
+          "metadata": {"version": 1},
+          "_links": {
+            "self": {"href": "http://localhost:8000/api/v1/zeynab-ba/comptes/uuid-compte-1", "method": "GET"},
+            "update": {"href": "http://localhost:8000/api/v1/zeynab-ba/comptes/uuid-compte-1", "method": "PUT"},
+            "delete": {"href": "http://localhost:8000/api/v1/zeynab-ba/comptes/uuid-compte-1", "method": "DELETE"}
+          }
+        }
+      ]
+    },
+    "pagination": {
+      "currentPage": 1,
+      "totalPages": 3,
+      "totalItems": 25,
+      "itemsPerPage": 10,
+      "hasNext": true,
+      "hasPrevious": false
+    }
+  },
+  "message": "Liste des comptes récupérée avec succès"
+}
+```
+
+### `GET /comptes/{id}` - Détails d'un compte
+**Description** : Récupère les détails d'un compte spécifique
+
+**Authentification** : Requise avec vérification propriétaire
+
+**Paramètres** :
+- `id` (string, UUID) : ID du compte
+
+**Réponse** :
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid-compte-1",
+    "numeroCompte": "CPT-CHQ001",
+    "titulaire": "Amadou Diop",
+    "type": "cheque",
+    "solde": 500000,
+    "devise": "FCFA",
+    "dateCreation": "2025-01-15T10:30:00.000000Z",
+    "statut": "actif",
+    "motifBlocage": null,
+    "metadata": {"version": 1},
+    "_links": {
+      "self": {"href": "http://localhost:8000/api/v1/zeynab-ba/comptes/uuid-compte-1", "method": "GET"},
+      "update": {"href": "http://localhost:8000/api/v1/zeynab-ba/comptes/uuid-compte-1", "method": "PUT"},
+      "delete": {"href": "http://localhost:8000/api/v1/zeynab-ba/comptes/uuid-compte-1", "method": "DELETE"},
+      "collection": {"href": "http://localhost:8000/api/v1/zeynab-ba/comptes", "method": "GET"}
+    }
+  },
+  "message": "Détails du compte récupérés avec succès"
+}
+```
+
+### `POST /comptes` - Créer un compte
+**Description** : Crée un nouveau compte bancaire
+
+**Authentification** : Admin seulement
+
+**Corps de la requête** :
+```json
+{
+  "client_id": "uuid-client-1",
+  "type": "cheque",
+  "devise": "FCFA",
+  "solde_initial": 100000,
+  "statut": "actif"
+}
+```
+
+**Réponse** :
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid-nouveau-compte",
+    "numeroCompte": "CPT-CHQ025",
+    "titulaire": "Amadou Diop",
+    "type": "cheque",
+    "solde": 100000,
+    "devise": "FCFA",
+    "dateCreation": "2025-01-25T14:30:00.000000Z",
+    "statut": "actif",
+    "_links": {
+      "self": {"href": "http://localhost:8000/api/v1/zeynab-ba/comptes/uuid-nouveau-compte", "method": "GET"}
+    }
+  },
+  "message": "Compte créé avec succès"
+}
+```
+
+### `PUT /comptes/{id}` - Modifier un compte
+**Description** : Met à jour les informations d'un compte
+
+**Authentification** : Admin seulement
+
+### `DELETE /comptes/{id}` - Supprimer un compte
+**Description** : Supprime logiquement un compte (soft delete)
+
+**Authentification** : Admin seulement
+
+### `GET /comptes-archives` - Comptes archivés (Cloud)
+**Description** : Liste des comptes supprimés (soft deleted)
+
+**Authentification** : Admin seulement
+
+**Note** : Simule un accès aux données archivées dans le cloud
+
+---
+
+## 💸 2. GESTION DES TRANSACTIONS
+
+### `GET /transactions` - Liste des transactions
+**Description** : Récupère la liste des transactions
+
+**Authentification** : Requise
+- **Admin** : Voit toutes les transactions
+- **Client** : Voit uniquement les transactions de ses comptes
+
+**Paramètres de requête** :
+```javascript
+{
+  "page": 1,
+  "limit": 10,
+  "type": "depot",           // depot, retrait, virement, transfert
+  "statut": "validee",       // en_attente, validee, rejete, annulee
+  "compte_id": "uuid-compte",
+  "search": "salaire",       // Recherche dans référence ou description
+  "sort": "date_execution",  // date_execution, montant, created_at
+  "order": "desc"
+}
+```
+
+**Réponse** :
+```json
+{
+  "success": true,
+  "data": {
+    "_links": {
+      "self": {"href": "http://localhost:8000/api/v1/zeynab-ba/transactions?page=1", "method": "GET"},
+      "first": {"href": "http://localhost:8000/api/v1/zeynab-ba/transactions?page=1", "method": "GET"},
+      "last": {"href": "http://localhost:8000/api/v1/zeynab-ba/transactions?page=5", "method": "GET"}
+    },
+    "_embedded": {
+      "transactions": [
+        {
+          "id": "uuid-transaction-1",
+          "reference": "TXN-DEPOSIT001",
+          "type": "depot",
+          "montant": 500000,
+          "montant_formate": "500 000 FCFA",
+          "devise": "FCFA",
+          "description": "Dépôt initial de salaire",
+          "statut": "validee",
+          "date_execution": "2025-01-15T10:30:00.000000Z",
+          "date_creation": "2025-01-15T10:25:00.000000Z",
+          "derniere_modification": "2025-01-15T10:30:00.000000Z",
+          "metadata": {"version": 1},
+          "compte": {
+            "id": "uuid-compte-1",
+            "numero": "CPT-CHQ001",
+            "type": "cheque",
+            "solde_initial": 500000,
+            "devise": "FCFA",
+            "titulaire": "Amadou Diop"
+          },
+          "_links": {
+            "self": {"href": "http://localhost:8000/api/v1/zeynab-ba/transactions/uuid-transaction-1", "method": "GET"},
+            "collection": {"href": "http://localhost:8000/api/v1/zeynab-ba/transactions", "method": "GET"},
+            "compte": {"href": "http://localhost:8000/api/v1/zeynab-ba/comptes/uuid-compte-1", "method": "GET"}
+          }
+        }
+      ]
+    },
+    "pagination": {
+      "currentPage": 1,
+      "totalPages": 5,
+      "totalItems": 47,
+      "itemsPerPage": 10,
+      "hasNext": true,
+      "hasPrevious": false
+    }
+  },
+  "message": "Liste des transactions récupérée avec succès"
+}
+```
+
+---
+
+## 👥 3. GESTION DES CLIENTS (FUTUR)
+
+> **Note** : Les endpoints clients ne sont pas encore implémentés dans cette version, mais la structure est prête.
+
+### Endpoints prévus :
+- `GET /clients` - Liste des clients (Admin)
+- `POST /clients` - Créer un client (Admin)
+- `GET /clients/{id}` - Détails client (Admin)
+- `PUT /clients/{id}` - Modifier client (Admin)
+- `DELETE /clients/{id}` - Supprimer client (Admin)
+
+---
+
+## 🔐 Authentification OAuth2
+
+### Obtenir un token d'accès
+
 ```bash
-# Seeder spécifique
-php artisan db:seed --class=CompteSeeder
+# Via cURL
+curl -X POST http://localhost:8000/oauth/token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "grant_type": "password",
+    "client_id": "your-client-id",
+    "client_secret": "your-client-secret",
+    "username": "user@example.com",
+    "password": "password",
+    "scope": "*"
+  }'
+```
 
-# Tous les seeders
+### Utiliser le token
+
+```bash
+curl -X GET http://localhost:8000/api/v1/zeynab-ba/comptes \
+  -H "Authorization: Bearer your-access-token" \
+  -H "Accept: application/json"
+```
+
+---
+
+## 📊 Données de Test
+
+### Clients prédéfinis (Seeder)
+```php
+[
+    ['nom' => 'Diop', 'prenom' => 'Amadou', 'email' => 'amadou.diop@example.com', 'telephone' => '+221771234567'],
+    ['nom' => 'Ndiaye', 'prenom' => 'Fatou', 'email' => 'fatou.ndiaye@example.com', 'telephone' => '+221772345678'],
+    ['nom' => 'Sow', 'prenom' => 'Mamadou', 'email' => 'mamadou.sow@example.com', 'telephone' => '+221773456789'],
+    ['nom' => 'Ba', 'prenom' => 'Aissatou', 'email' => 'aissatou.ba@example.com', 'telephone' => '+221774567890'],
+    ['nom' => 'Gueye', 'prenom' => 'Ibrahima', 'email' => 'ibrahima.gueye@example.com', 'telephone' => '+221775678901']
+]
+```
+
+### Comptes prédéfinis (Seeder)
+```php
+[
+    ['numero' => 'CPT-CHQ001', 'solde_initial' => 500000, 'devise' => 'FCFA', 'type' => 'cheque'],
+    ['numero' => 'CPT-CHQ002', 'solde_initial' => 750000, 'devise' => 'FCFA', 'type' => 'cheque'],
+    ['numero' => 'CPT-CRT001', 'solde_initial' => 100000, 'devise' => 'EUR', 'type' => 'courant'],
+    ['numero' => 'CPT-EPG001', 'solde_initial' => 200000, 'devise' => 'FCFA', 'type' => 'epargne'],
+    ['numero' => 'CPT-CHQ003', 'solde_initial' => 300000, 'devise' => 'USD', 'type' => 'cheque']
+]
+```
+
+### Transactions prédéfinies (Seeder)
+```php
+[
+    ['reference' => 'TXN-DEPOSIT001', 'type' => 'depot', 'montant' => 500000, 'devise' => 'FCFA', 'statut' => 'validee'],
+    ['reference' => 'TXN-WITHDRAW001', 'type' => 'retrait', 'montant' => 100000, 'devise' => 'FCFA', 'statut' => 'validee'],
+    ['reference' => 'TXN-TRANSFER001', 'type' => 'virement', 'montant' => 250000, 'devise' => 'FCFA', 'statut' => 'validee'],
+    ['reference' => 'TXN-DEPOSIT002', 'type' => 'depot', 'montant' => 75000, 'devise' => 'EUR', 'statut' => 'validee'],
+    ['reference' => 'TXN-PENDING001', 'type' => 'retrait', 'montant' => 50000, 'devise' => 'FCFA', 'statut' => 'en_attente']
+]
+```
+
+---
+
+## 🧪 Tests & Développement
+
+### Exécution des seeders
+```bash
+# Peupler la base avec des données de test
 php artisan db:seed
 
-# Factory pour tests
-php artisan tinker
->>> App\Models\Compte::factory()->count(10)->create();
+# Peupler seulement certains seeders
+php artisan db:seed --class=ClientSeeder
+php artisan db:seed --class=CompteSeeder
+php artisan db:seed --class=TransactionSeeder
 ```
 
-## 🧪 Tests
-
-### Tests unitaires et fonctionnels
+### Tests automatisés
 ```bash
 # Exécuter tous les tests
 php artisan test
-
-# Tests spécifiques
-php artisan test --filter=CompteTest
 
 # Tests avec couverture
 php artisan test --coverage
 ```
 
-### Structure des tests
-```
-tests/
-├── Feature/
-│   ├── Api/
-│   │   └── CompteApiTest.php
-│   └── CompteTest.php
-└── Unit/
-    ├── Models/
-    │   └── CompteTest.php
-    └── Services/
-        └── CompteServiceTest.php
-```
-
-## 📚 Documentation
-
-### OpenAPI/Swagger
-La documentation API est générée automatiquement et disponible dans :
-- **Fichier JSON** : `storage/api-docs/api-docs.json`
-- **Interface web** : Via Swagger UI (si configuré)
-
-### Points d'entrée documentés
-- ✅ Endpoints RESTful
-- ✅ Paramètres de requête
-- ✅ Schémas de réponse
-- ✅ Codes d'erreur
-- ✅ Exemples d'utilisation
-
-## 🔒 Sécurité
-
-### Mesures implémentées
-
-#### 1. **Authentification**
-- **OAuth2 via Laravel Passport**
-- **Personal Access Tokens** pour l'API
-- **Password Grant** pour l'authentification classique
-- **Client Credentials** pour les applications tierces
-- **Refresh Tokens** avec expiration automatique
-
-#### 2. **Autorisation**
-- Middleware d'authentification
-- Vérification des rôles (extensible)
-- Contrôle d'accès aux ressources
-
-#### 3. **Validation**
-- Validation stricte des entrées
-- Sanitisation automatique
-- Messages d'erreur personnalisés
-
-#### 4. **Rate Limiting**
-- Limite de 60 requêtes/minute par défaut
-- Logging automatique des dépassements
-- Headers exposés pour monitoring client
-
-#### 5. **Sécurité des données**
-- UUID comme clés primaires
-- Soft deletes pour archivage
-- Chiffrement des données sensibles (extensible)
-
-### Headers de sécurité
-```http
-X-RateLimit-Limit: 60
-X-RateLimit-Remaining: 59
-X-RateLimit-Reset: 1640995200
-```
-
-## 📈 Performance
-
-### Optimisations implémentées
-
-#### 1. **Base de données**
-- Indexes stratégiques sur colonnes fréquemment filtrées
-- Eager loading des relations
-- Pagination efficace
-
-#### 2. **Cache**
-- Cache des requêtes fréquentes (extensible)
-- Cache des configurations
-- Cache des tokens JWT
-
-#### 3. **API**
-- Réponses JSON optimisées
-- Compression GZIP
-- Headers appropriés pour cache
-
-## 🔧 Commandes Artisan Utiles
-
+### Génération de données factices
 ```bash
-# Générer des clés
-php artisan key:generate
+# Créer 10 clients factices
+php artisan tinker
+>>> App\Models\Client::factory(10)->create()
+>>> App\Models\Compte::factory(10)->create()
+>>> App\Models\Transaction::factory(10)->create()
+```
 
-# Migrations
-php artisan migrate
-php artisan migrate:status
-php artisan migrate:rollback
+---
 
-# Seeders
-php artisan db:seed
-php artisan make:seeder NouveauSeeder
+## 📖 Documentation API
 
-# Factories
-php artisan make:factory NouveauFactory
+### Swagger/OpenAPI
+L'API est documentée avec Swagger. Accédez à :
+```
+http://localhost:8000/api/documentation
+```
 
-# Controllers
-php artisan make:controller Api/V1/NouveauController --api
+### Postman Collection
+Importez le fichier `postman_collection.json` pour tester l'API.
 
-# Resources
-php artisan make:resource NouveauResource
+---
 
-# Requests
-php artisan make:request NouveauRequest
+## 🔧 Configuration Avancée
 
-# Middleware
-php artisan make:middleware NouveauMiddleware
+### Variables d'environnement (.env)
+```env
+# Base de données
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=banque_api
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
 
-# Tests
-php artisan make:test NouveauTest
-php artisan test
+# Passport
+PASSPORT_PERSONAL_ACCESS_CLIENT_ID=1
+PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET=your-secret
 
-# Cache
+# Rate Limiting
+THROTTLE_RATE=60
+
+# Pagination
+DEFAULT_PAGINATION_LIMIT=10
+MAX_PAGINATION_LIMIT=100
+```
+
+### Middleware personnalisé
+```php
+// app/Http/Kernel.php
+protected $middlewareAliases = [
+    // ... autres middlewares
+    'role' => \App\Http\Middleware\RoleMiddleware::class,
+];
+```
+
+---
+
+## 🚨 Gestion des Erreurs
+
+### Codes d'erreur HTTP
+- `200` : Succès
+- `201` : Créé avec succès
+- `400` : Données invalides
+- `401` : Non authentifié
+- `403` : Accès refusé
+- `404` : Ressource non trouvée
+- `422` : Erreur de validation
+- `429` : Limite de taux dépassée
+- `500` : Erreur serveur
+
+### Structure des erreurs
+```json
+{
+  "success": false,
+  "message": "Description de l'erreur",
+  "errors": {
+    "champ1": ["Erreur 1", "Erreur 2"],
+    "champ2": ["Erreur 3"]
+  }
+}
+```
+
+---
+
+## 🔍 Monitoring & Logs
+
+### Logs Laravel
+```bash
+# Voir les logs
+tail -f storage/logs/laravel.log
+
+# Logs par date
+tail -f storage/logs/laravel-2025-01-25.log
+```
+
+### Rate Limiting
+- Surveillance automatique des dépassements
+- Logs des IPs suspectes
+- Possibilité de blocage automatique
+
+---
+
+## 🚀 Déploiement
+
+### Préparation pour la production
+```bash
+# Optimisation
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
-# Nettoyer le cache
-php artisan cache:clear
-php artisan config:clear
-php artisan route:clear
-php artisan view:clear
-```
+# Migrations en production
+php artisan migrate --force
 
-## 🚀 Déploiement
+# Permissions
+chmod -R 755 storage/
+chmod -R 755 bootstrap/cache/
+```
 
 ### Variables de production
 ```env
@@ -541,35 +686,13 @@ APP_URL=https://api.banque.example.com
 DB_CONNECTION=mysql
 DB_HOST=production-host
 DB_DATABASE=banque_prod
-DB_USERNAME=prod_user
-DB_PASSWORD=secure_password
 
-# Cache et sessions
-CACHE_DRIVER=redis
-SESSION_DRIVER=redis
-REDIS_HOST=redis-server
+# Passport production
+PASSPORT_PERSONAL_ACCESS_CLIENT_ID=prod-client-id
+PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET=prod-client-secret
 ```
 
-### Commandes de déploiement
-```bash
-# Installation des dépendances
-composer install --optimize-autoloader --no-dev
-
-# Génération des clés
-php artisan key:generate
-
-# Cache des configurations
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-
-# Migrations
-php artisan migrate --force
-
-# Permissions
-chmod -R 755 storage
-chmod -R 755 bootstrap/cache
-```
+---
 
 ## 🤝 Contribution
 
@@ -579,61 +702,21 @@ chmod -R 755 bootstrap/cache
 4. Push la branche (`git push origin feature/nouvelle-fonctionnalite`)
 5. Créer une Pull Request
 
-## 📝 Licence
+---
 
-Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de détails.
+## 📄 Licence
+
+Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
+
+---
 
 ## 📞 Support
 
 Pour toute question ou problème :
-- 📧 Email: support@banque.example.com
-- 📖 Documentation: [API Docs](storage/api-docs/api-docs.json)
-- 🐛 Issues: [GitHub Issues](https://github.com/username/banque/issues)
+- 📧 Email : support@banque-api.com
+- 📚 Documentation : [Lien vers la doc complète]
+- 🐛 Issues : [Lien vers GitHub Issues]
 
 ---
 
-**Développé avec ❤️ par l'équipe de développement Laravel**
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
-
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-## Laravel Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+*Développé avec ❤️ par Zeynab BA - API Banque v1.0*

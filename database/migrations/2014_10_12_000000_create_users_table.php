@@ -18,6 +18,10 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->rememberToken();
+
+            // Champs pour relation polymorphique
+            $table->morphs('userable'); // userable_type et userable_id
+
             $table->timestamps();
         });
     }

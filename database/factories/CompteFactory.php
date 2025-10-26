@@ -21,7 +21,7 @@ class CompteFactory extends Factory
             'solde_initial' => $this->faker->randomFloat(2, 10000, 500000),
             'devise' => $this->faker->randomElement(['FCFA', 'EUR', 'USD']),
             'type' => $this->faker->randomElement(['cheque', 'courant', 'epargne']),
-            'admin_id' => \App\Models\Admin::factory(),
+            'client_id' => \App\Models\Client::factory(),
         ];
     }
 }

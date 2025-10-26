@@ -25,7 +25,7 @@ class StoreCompteRequest extends FormRequest
             'solde_initial' => 'nullable|numeric|min:0',
             'devise' => 'nullable|string|in:FCFA,EUR,USD',
             'type' => 'required|string|in:cheque,courant,epargne',
-            'admin_id' => 'required|exists:admins,id',
+            'client_id' => 'required|exists:clients,id',
         ];
     }
 }

@@ -1,416 +1,1142 @@
 {
-  "openapi": "3.0.3",
-  "info": {
-    "title": "API Banque - Gestion des Comptes",
-    "description": "API REST pour la gestion des comptes bancaires",
-    "version": "1.0.0",
-    "contact": {
-      "email": "support@banque.example.com"
-    }
-  },
-  "servers": [
-    {
-      "url": "http://api.banque.example.com",
-      "description": "Serveur de production"
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Banque API Zeynab-Ba",
+        "description": "API documentation for Banque application Zeynab-Ba",
+        "version": "1.0.0"
     },
-    {
-      "url": "http://localhost:8000",
-      "description": "Serveur de développement"
-    }
-  ],
-  "security": [
-    {
-      "bearerAuth": []
-    }
-  ],
-  "paths": {
-    "/user": {
-      "get": {
-        "summary": "Get authenticated user",
-        "operationId": "ed7384d7b0315a693466a7528ac2c3a8",
-        "responses": {
-          "200": {
-            "description": "User data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/User"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/comptes": {
-      "get": {
-        "tags": ["Comptes"],
-        "summary": "Lister tous les comptes",
-        "description": "Récupère la liste paginée des comptes avec possibilité de filtrage et tri",
-        "operationId": "getComptes",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "description": "Numéro de page (défaut: 1)",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "default": 1
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Nombre d'éléments par page (défaut: 10, max: 100)",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 10
-            }
-          },
-          {
-            "name": "type",
-            "in": "query",
-            "description": "Filtrer par type de compte",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": ["cheque", "courant", "epargne"]
-            }
-          },
-          {
-            "name": "statut",
-            "in": "query",
-            "description": "Filtrer par statut",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": ["actif", "bloque", "ferme"]
-            }
-          },
-          {
-            "name": "search",
-            "in": "query",
-            "description": "Recherche par titulaire ou numéro de compte",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "sort",
-            "in": "query",
-            "description": "Champ de tri",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": ["dateCreation", "solde", "titulaire"],
-              "default": "dateCreation"
-            }
-          },
-          {
-            "name": "order",
-            "in": "query",
-            "description": "Ordre de tri",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": ["asc", "desc"],
-              "default": "desc"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Liste des comptes récupérée avec succès",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ComptesResponse"
-                },
-                "example": {
-                  "success": true,
-                  "data": [
-                    {
-                      "id": "550e8400-e29b-41d4-a716-446655440000",
-                      "numeroCompte": "C00123456",
-                      "titulaire": "Amadou Diallo",
-                      "type": "epargne",
-                      "solde": 1250000,
-                      "devise": "FCFA",
-                      "dateCreation": "2023-03-15T00:00:00Z",
-                      "statut": "bloque",
-                      "motifBlocage": "Inactivité de 30+ jours",
-                      "metadata": {
-                        "derniereModification": "2023-06-10T14:30:00Z",
-                        "version": 1
-                      }
+    "servers": [
+        {
+            "url": "http://localhost:8081",
+            "description": "API server"
+        }
+    ],
+    "paths": {
+        "/api/v1/zeynab-ba/auth/login": {
+            "post": {
+                "tags": [
+                    "Authentification"
+                ],
+                "summary": "Connexion utilisateur",
+                "description": "Authentifier un utilisateur (Admin ou Client) et retourner un token d'accès",
+                "operationId": "login",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "admin@banque.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
                     }
-                  ],
-                  "pagination": {
-                    "currentPage": 1,
-                    "totalPages": 3,
-                    "totalItems": 25,
-                    "itemsPerPage": 10,
-                    "hasNext": true,
-                    "hasPrevious": false
-                  },
-                  "links": {
-                    "self": "/api/v1/comptes?page=1&limit=10",
-                    "next": "/api/v1/comptes?page=2&limit=10",
-                    "first": "/api/v1/comptes?page=1&limit=10",
-                    "last": "/api/v1/comptes?page=3&limit=10"
-                  }
-                }
-              }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Connexion réussie",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "user": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "name": {
+                                                            "type": "string",
+                                                            "example": "Admin User"
+                                                        },
+                                                        "email": {
+                                                            "type": "string",
+                                                            "example": "admin@banque.com"
+                                                        },
+                                                        "role": {
+                                                            "type": "string",
+                                                            "example": "admin"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "token": {
+                                                    "type": "string",
+                                                    "example": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Connexion réussie"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Informations d'identification incorrectes",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Erreur de validation"
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "email": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "Les informations d'identification sont incorrectes."
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
             }
-          },
-          "401": {
-            "description": "Non autorisé",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Trop de requêtes",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Erreur interne du serveur",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    }
-  },
-  "components": {
-    "schemas": {
-      "User": {
-        "title": "User",
-        "description": "User model",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "example": 1
-          },
-          "name": {
-            "type": "string",
-            "example": "John Doe"
-          },
-          "email": {
-            "type": "string",
-            "format": "email",
-            "example": "john@example.com"
-          },
-          "email_verified_at": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          }
+        "/api/v1/zeynab-ba/auth/register": {
+            "post": {
+                "tags": [
+                    "Authentification"
+                ],
+                "summary": "Inscription client",
+                "description": "Créer un nouveau compte client avec authentification",
+                "operationId": "register",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "nom",
+                                    "prenom",
+                                    "email",
+                                    "telephone",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "nom": {
+                                        "type": "string",
+                                        "maxLength": 255,
+                                        "example": "Diop"
+                                    },
+                                    "prenom": {
+                                        "type": "string",
+                                        "maxLength": 255,
+                                        "example": "Amadou"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "amadou.diop@email.com"
+                                    },
+                                    "telephone": {
+                                        "type": "string",
+                                        "example": "+221771234567"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "minLength": 8,
+                                        "example": "password123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "example": "password123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Inscription réussie",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "user": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 2
+                                                        },
+                                                        "name": {
+                                                            "type": "string",
+                                                            "example": "Amadou Diop"
+                                                        },
+                                                        "email": {
+                                                            "type": "string",
+                                                            "example": "amadou.diop@email.com"
+                                                        },
+                                                        "role": {
+                                                            "type": "string",
+                                                            "example": "client"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "token": {
+                                                    "type": "string",
+                                                    "example": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Inscription réussie"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Données invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Erreur de validation"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
         },
-        "type": "object"
-      },
-      "ComptesResponse": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean",
-            "example": true
-          },
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Compte"
+        "/api/v1/zeynab-ba/comptes": {
+            "post": {
+                "tags": [
+                    "Comptes"
+                ],
+                "summary": "Créer un nouveau compte",
+                "description": "Créer un nouveau compte bancaire",
+                "operationId": "createCompte",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "admin_id",
+                                    "type",
+                                    "devise"
+                                ],
+                                "properties": {
+                                    "admin_id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "cheque",
+                                            "courant",
+                                            "epargne"
+                                        ],
+                                        "example": "epargne"
+                                    },
+                                    "devise": {
+                                        "type": "string",
+                                        "enum": [
+                                            "FCFA",
+                                            "EUR",
+                                            "USD"
+                                        ],
+                                        "example": "FCFA"
+                                    },
+                                    "solde_initial": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 100000
+                                    },
+                                    "statut": {
+                                        "type": "string",
+                                        "enum": [
+                                            "actif",
+                                            "bloque",
+                                            "ferme"
+                                        ],
+                                        "example": "actif"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Compte créé avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Compte"
+                                        },
+                                        "_links": {
+                                            "properties": {
+                                                "self": {
+                                                    "properties": {
+                                                        "href": {
+                                                            "type": "string",
+                                                            "example": "/api/v1/zeynab-ba/comptes/{id}"
+                                                        },
+                                                        "method": {
+                                                            "type": "string",
+                                                            "example": "GET"
+                                                        },
+                                                        "rel": {
+                                                            "type": "string",
+                                                            "example": "self"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Données invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Erreur interne du serveur",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
             }
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination"
-          },
-          "links": {
-            "$ref": "#/components/schemas/Links"
-          }
-        }
-      },
-      "Compte": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "example": "550e8400-e29b-41d4-a716-446655440000"
-          },
-          "numeroCompte": {
-            "type": "string",
-            "example": "C00123456"
-          },
-          "titulaire": {
-            "type": "string",
-            "example": "Amadou Diallo"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["cheque", "courant", "epargne"],
-            "example": "epargne"
-          },
-          "solde": {
-            "type": "number",
-            "format": "float",
-            "example": 1250000
-          },
-          "devise": {
-            "type": "string",
-            "enum": ["FCFA", "EUR", "USD"],
-            "example": "FCFA"
-          },
-          "dateCreation": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2023-03-15T00:00:00Z"
-          },
-          "statut": {
-            "type": "string",
-            "enum": ["actif", "bloque", "ferme"],
-            "example": "bloque"
-          },
-          "motifBlocage": {
-            "type": "string",
-            "nullable": true,
-            "example": "Inactivité de 30+ jours"
-          },
-          "metadata": {
-            "type": "object",
-            "properties": {
-              "derniereModification": {
-                "type": "string",
-                "format": "date-time",
-                "example": "2023-06-10T14:30:00Z"
-              },
-              "version": {
-                "type": "integer",
-                "example": 1
-              }
+        },
+        "/api/v1/zeynab-ba/comptes/{id}": {
+            "get": {
+                "tags": [
+                    "Comptes"
+                ],
+                "summary": "Afficher un compte spécifique",
+                "description": "Récupérer les détails d'un compte bancaire spécifique",
+                "operationId": "getCompte",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du compte",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Détails du compte récupérés avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Compte"
+                                        },
+                                        "_links": {
+                                            "properties": {
+                                                "self": {
+                                                    "properties": {
+                                                        "href": {
+                                                            "type": "string",
+                                                            "example": "/api/v1/zeynab-ba/comptes/{id}"
+                                                        },
+                                                        "method": {
+                                                            "type": "string",
+                                                            "example": "GET"
+                                                        },
+                                                        "rel": {
+                                                            "type": "string",
+                                                            "example": "self"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "update": {
+                                                    "properties": {
+                                                        "href": {
+                                                            "type": "string",
+                                                            "example": "/api/v1/zeynab-ba/comptes/{id}"
+                                                        },
+                                                        "method": {
+                                                            "type": "string",
+                                                            "example": "PUT"
+                                                        },
+                                                        "rel": {
+                                                            "type": "string",
+                                                            "example": "update"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "delete": {
+                                                    "properties": {
+                                                        "href": {
+                                                            "type": "string",
+                                                            "example": "/api/v1/zeynab-ba/comptes/{id}"
+                                                        },
+                                                        "method": {
+                                                            "type": "string",
+                                                            "example": "DELETE"
+                                                        },
+                                                        "rel": {
+                                                            "type": "string",
+                                                            "example": "delete"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "collection": {
+                                                    "properties": {
+                                                        "href": {
+                                                            "type": "string",
+                                                            "example": "/api/v1/zeynab-ba/comptes"
+                                                        },
+                                                        "method": {
+                                                            "type": "string",
+                                                            "example": "GET"
+                                                        },
+                                                        "rel": {
+                                                            "type": "string",
+                                                            "example": "collection"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Compte non trouvé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Erreur interne du serveur",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            },
+            "put": {
+                "tags": [
+                    "Comptes"
+                ],
+                "summary": "Mettre à jour un compte",
+                "description": "Mettre à jour les informations d'un compte bancaire",
+                "operationId": "updateCompte",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du compte",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "cheque",
+                                            "courant",
+                                            "epargne"
+                                        ]
+                                    },
+                                    "statut": {
+                                        "type": "string",
+                                        "enum": [
+                                            "actif",
+                                            "bloque",
+                                            "ferme"
+                                        ]
+                                    },
+                                    "motif_blocage": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Compte mis à jour avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Compte"
+                                        },
+                                        "_links": {
+                                            "properties": {
+                                                "self": {
+                                                    "properties": {
+                                                        "href": {
+                                                            "type": "string",
+                                                            "example": "/api/v1/zeynab-ba/comptes/{id}"
+                                                        },
+                                                        "method": {
+                                                            "type": "string",
+                                                            "example": "GET"
+                                                        },
+                                                        "rel": {
+                                                            "type": "string",
+                                                            "example": "self"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Compte non trouvé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Données invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Erreur interne du serveur",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            },
+            "delete": {
+                "tags": [
+                    "Comptes"
+                ],
+                "summary": "Supprimer un compte",
+                "description": "Supprimer un compte bancaire (soft delete)",
+                "operationId": "deleteCompte",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du compte",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Compte supprimé avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Compte supprimé avec succès"
+                                        },
+                                        "_links": {
+                                            "properties": {
+                                                "collection": {
+                                                    "properties": {
+                                                        "href": {
+                                                            "type": "string",
+                                                            "example": "/api/v1/zeynab-ba/comptes"
+                                                        },
+                                                        "method": {
+                                                            "type": "string",
+                                                            "example": "GET"
+                                                        },
+                                                        "rel": {
+                                                            "type": "string",
+                                                            "example": "collection"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Compte non trouvé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Erreur interne du serveur",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
             }
-          }
         }
-      },
-      "Pagination": {
-        "type": "object",
-        "properties": {
-          "currentPage": {
-            "type": "integer",
-            "example": 1
-          },
-          "totalPages": {
-            "type": "integer",
-            "example": 3
-          },
-          "totalItems": {
-            "type": "integer",
-            "example": 25
-          },
-          "itemsPerPage": {
-            "type": "integer",
-            "example": 10
-          },
-          "hasNext": {
-            "type": "boolean",
-            "example": true
-          },
-          "hasPrevious": {
-            "type": "boolean",
-            "example": false
-          }
-        }
-      },
-      "Links": {
-        "type": "object",
-        "properties": {
-          "self": {
-            "type": "string",
-            "example": "/api/v1/comptes?page=1&limit=10"
-          },
-          "next": {
-            "type": "string",
-            "nullable": true,
-            "example": "/api/v1/comptes?page=2&limit=10"
-          },
-          "previous": {
-            "type": "string",
-            "nullable": true,
-            "example": null
-          },
-          "first": {
-            "type": "string",
-            "example": "/api/v1/comptes?page=1&limit=10"
-          },
-          "last": {
-            "type": "string",
-            "example": "/api/v1/comptes?page=3&limit=10"
-          }
-        }
-      },
-      "ErrorResponse": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean",
-            "example": false
-          },
-          "message": {
-            "type": "string",
-            "example": "Erreur de validation"
-          },
-          "errors": {
-            "type": "object",
-            "nullable": true
-          }
-        }
-      }
     },
-    "securitySchemes": {
-      "bearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT"
-      }
-    }
-  }
+    "components": {
+        "schemas": {
+            "Admin": {
+                "title": "Admin",
+                "description": "Admin model",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Admin User"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "admin@example.com"
+                    },
+                    "email_verified_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "User": {
+                "title": "User",
+                "description": "User model",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "John Doe"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "john@example.com"
+                    },
+                    "email_verified_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "ComptesResponse": {
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "_links": {
+                        "$ref": "#/components/schemas/Links"
+                    },
+                    "_embedded": {
+                        "properties": {
+                            "comptes": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/CompteWithLinks"
+                                }
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "pagination": {
+                        "$ref": "#/components/schemas/Pagination"
+                    }
+                },
+                "type": "object"
+            },
+            "CompteWithLinks": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                    },
+                    "numeroCompte": {
+                        "type": "string",
+                        "example": "C00123456"
+                    },
+                    "titulaire": {
+                        "type": "string",
+                        "example": "Amadou Diallo"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "cheque",
+                            "courant",
+                            "epargne"
+                        ],
+                        "example": "epargne"
+                    },
+                    "solde": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 1250000
+                    },
+                    "devise": {
+                        "type": "string",
+                        "enum": [
+                            "FCFA",
+                            "EUR",
+                            "USD"
+                        ],
+                        "example": "FCFA"
+                    },
+                    "dateCreation": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2023-03-15T00:00:00Z"
+                    },
+                    "statut": {
+                        "type": "string",
+                        "enum": [
+                            "actif",
+                            "bloque",
+                            "ferme"
+                        ],
+                        "example": "bloque"
+                    },
+                    "motifBlocage": {
+                        "type": "string",
+                        "example": "Inactivité de 30+ jours",
+                        "nullable": true
+                    },
+                    "metadata": {
+                        "properties": {
+                            "derniereModification": {
+                                "type": "string",
+                                "format": "date-time",
+                                "example": "2023-06-10T14:30:00Z"
+                            },
+                            "version": {
+                                "type": "integer",
+                                "example": 1
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "_links": {
+                        "properties": {
+                            "self": {
+                                "properties": {
+                                    "href": {
+                                        "type": "string",
+                                        "example": "/api/v1/zeynab-ba/comptes/{id}"
+                                    },
+                                    "method": {
+                                        "type": "string",
+                                        "example": "GET"
+                                    },
+                                    "rel": {
+                                        "type": "string",
+                                        "example": "self"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "update": {
+                                "properties": {
+                                    "href": {
+                                        "type": "string",
+                                        "example": "/api/v1/zeynab-ba/comptes/{id}"
+                                    },
+                                    "method": {
+                                        "type": "string",
+                                        "example": "PUT"
+                                    },
+                                    "rel": {
+                                        "type": "string",
+                                        "example": "update"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "delete": {
+                                "properties": {
+                                    "href": {
+                                        "type": "string",
+                                        "example": "/api/v1/zeynab-ba/comptes/{id}"
+                                    },
+                                    "method": {
+                                        "type": "string",
+                                        "example": "DELETE"
+                                    },
+                                    "rel": {
+                                        "type": "string",
+                                        "example": "delete"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "Compte": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                    },
+                    "numeroCompte": {
+                        "type": "string",
+                        "example": "C00123456"
+                    },
+                    "titulaire": {
+                        "type": "string",
+                        "example": "Amadou Diallo"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "cheque",
+                            "courant",
+                            "epargne"
+                        ],
+                        "example": "epargne"
+                    },
+                    "solde": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 1250000
+                    },
+                    "devise": {
+                        "type": "string",
+                        "enum": [
+                            "FCFA",
+                            "EUR",
+                            "USD"
+                        ],
+                        "example": "FCFA"
+                    },
+                    "dateCreation": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2023-03-15T00:00:00Z"
+                    },
+                    "statut": {
+                        "type": "string",
+                        "enum": [
+                            "actif",
+                            "bloque",
+                            "ferme"
+                        ],
+                        "example": "bloque"
+                    },
+                    "motifBlocage": {
+                        "type": "string",
+                        "example": "Inactivité de 30+ jours",
+                        "nullable": true
+                    },
+                    "metadata": {
+                        "properties": {
+                            "derniereModification": {
+                                "type": "string",
+                                "format": "date-time",
+                                "example": "2023-06-10T14:30:00Z"
+                            },
+                            "version": {
+                                "type": "integer",
+                                "example": 1
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "Pagination": {
+                "properties": {
+                    "currentPage": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "totalPages": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "totalItems": {
+                        "type": "integer",
+                        "example": 25
+                    },
+                    "itemsPerPage": {
+                        "type": "integer",
+                        "example": 10
+                    },
+                    "hasNext": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "hasPrevious": {
+                        "type": "boolean",
+                        "example": false
+                    }
+                },
+                "type": "object"
+            },
+            "Links": {
+                "properties": {
+                    "self": {
+                        "type": "string",
+                        "example": "/api/v1/zeynab-ba/comptes?page=1&limit=10"
+                    },
+                    "next": {
+                        "type": "string",
+                        "example": "/api/v1/zeynab-ba/comptes?page=2&limit=10",
+                        "nullable": true
+                    },
+                    "previous": {
+                        "type": "string",
+                        "example": null,
+                        "nullable": true
+                    },
+                    "first": {
+                        "type": "string",
+                        "example": "/api/v1/zeynab-ba/comptes?page=1&limit=10"
+                    },
+                    "last": {
+                        "type": "string",
+                        "example": "/api/v1/zeynab-ba/comptes?page=3&limit=10"
+                    }
+                },
+                "type": "object"
+            },
+            "ErrorResponse": {
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "Erreur de validation"
+                    },
+                    "errors": {
+                        "type": "object",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "Token d'authentification Bearer JWT"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Authentification",
+            "description": "Authentification"
+        },
+        {
+            "name": "Comptes",
+            "description": "Comptes"
+        }
+    ],
+    "security": [
+        {
+            "bearerAuth": []
+        }
+    ]
 }
