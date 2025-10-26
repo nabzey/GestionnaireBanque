@@ -13,52 +13,6 @@ class AuthController extends Controller
 {
     use ApiResponseTrait;
 
-    /**
-     * @OA\Post(
-     *     path="/api/v1/zeynab-ba/auth/login",
-     *     tags={"Authentification"},
-     *     summary="Connexion utilisateur",
-     *     description="Authentifier un utilisateur (Admin ou Client) et retourner un token d'accès",
-     *     operationId="login",
-     *     security={},
-     *     @OA\RequestBody(
-     *         required=true,
-     *         @OA\JsonContent(
-     *             required={"email","password"},
-     *             @OA\Property(property="email", type="string", format="email", example="admin@banque.com"),
-     *             @OA\Property(property="password", type="string", format="password", example="password")
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=200,
-     *         description="Connexion réussie",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="success", type="boolean", example=true),
-     *             @OA\Property(property="data", type="object",
-     *                 @OA\Property(property="user", type="object",
-     *                     @OA\Property(property="id", type="integer", example=1),
-     *                     @OA\Property(property="name", type="string", example="Admin User"),
-     *                     @OA\Property(property="email", type="string", example="admin@banque.com"),
-     *                     @OA\Property(property="role", type="string", example="admin")
-     *                 ),
-     *                 @OA\Property(property="token", type="string", example="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...")
-     *             ),
-     *             @OA\Property(property="message", type="string", example="Connexion réussie")
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=422,
-     *         description="Informations d'identification incorrectes",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="message", type="string", example="Erreur de validation"),
-     *             @OA\Property(property="errors", type="object",
-     *                 @OA\Property(property="email", type="array", @OA\Items(type="string", example="Les informations d'identification sont incorrectes."))
-     *             )
-     *         )
-     *     )
-     * )
-     */
     public function login(Request $request): JsonResponse
     {
         $request->validate([

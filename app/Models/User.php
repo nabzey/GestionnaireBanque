@@ -89,8 +89,8 @@ class User extends Authenticatable
     public function admin()
     {
         if ($this->isAdmin()) {
-            // Pour admin, on peut retourner des infos fictives ou null
-            return (object) [
+            // Retourner un tableau au lieu d'un objet pour éviter l'erreur de relation
+            return [
                 'id' => $this->userable_id,
                 'name' => $this->name,
                 'email' => $this->email,
@@ -139,7 +139,11 @@ class User extends Authenticatable
         // Récupérer les informations du profil
         $profile = null;
         if ($user->isAdmin()) {
-            $profile = $user->admin;
+            $profile = [
+                'id' => $user->userable_id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ];
         } elseif ($user->isClient()) {
             $profile = $user->client;
         }
@@ -152,7 +156,7 @@ class User extends Authenticatable
                 'role' => $role,
                 'profile' => $profile,
             ],
-            'access_token' => $token,
+            'token' => $token,
             'token_type' => 'Bearer',
         ];
     }
@@ -191,7 +195,7 @@ class User extends Authenticatable
                 'role' => 'client',
                 'profile' => $client,
             ],
-            'access_token' => $token,
+            'token' => $token,
             'token_type' => 'Bearer',
         ];
     }
@@ -214,7 +218,11 @@ class User extends Authenticatable
 
         $profile = null;
         if ($this->isAdmin()) {
-            $profile = $this->admin;
+            $profile = [
+                'id' => $this->userable_id,
+                'name' => $this->name,
+                'email' => $this->email,
+            ];
         } elseif ($this->isClient()) {
             $profile = $this->client;
         }
