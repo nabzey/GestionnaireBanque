@@ -17,8 +17,7 @@ class CompteScope implements Scope
      */
     public function apply(Builder $builder, Model $model): void
     {
-        // Filtrer uniquement les comptes actifs de type chèque ou épargne
-        $builder->where('statut', 'actif')
-                ->whereIn('type', ['cheque', 'epargne']);
+        // Ne pas appliquer de filtre global pour permettre la flexibilité dans les requêtes API
+        // Les filtres seront appliqués au niveau du contrôleur selon les besoins
     }
 }

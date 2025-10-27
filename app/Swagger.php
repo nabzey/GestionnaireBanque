@@ -10,7 +10,7 @@ namespace App;
  * )
  *
  * @OA\Server(
- *     url="http://localhost:8081",
+ *     url="http://localhost:8001",
  *     description="API server"
  * )
  *

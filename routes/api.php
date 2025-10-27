@@ -22,22 +22,22 @@ Route::prefix('v1/zeynab-ba')->group(function () {
 
     // Routes protégées (nécessitent authentification)
 
-    // ✅ ROUTES COMPTES (protégées)
+    // ✅ ROUTES COMPTES (temporairement sans authentification)
     Route::controller(CompteController::class)
         ->prefix('comptes')
-        ->middleware(['auth:api', 'throttle:60,1'])
+        ->middleware(['throttle:60,1'])
         ->group(function () {
 
             Route::get('/', 'index')->name('api.v1.comptes.index');           // Liste des comptes
-            Route::post('/', 'store')->middleware('role:admin')->name('api.v1.comptes.store');  // Création (Admin)
+            Route::post('/', 'store')->name('api.v1.comptes.store');  // Création
             Route::get('/{id}', 'show')->name('api.v1.comptes.show');         // Afficher un compte
-            Route::put('/{id}', 'update')->middleware('role:admin')->name('api.v1.comptes.update'); // Modifier (Admin)
-            Route::delete('/{id}', 'destroy')->middleware('role:admin')->name('api.v1.comptes.destroy'); // Supprimer (Admin)
+            Route::put('/{id}', 'update')->name('api.v1.comptes.update'); // Modifier
+            Route::delete('/{id}', 'destroy')->name('api.v1.comptes.destroy'); // Supprimer
         });
 
-    // ✅ ARCHIVES (Admin seulement)
+    // ✅ ARCHIVES (temporairement sans authentification)
     Route::get('comptes-archives', [CompteController::class, 'archives'])
-        ->middleware(['auth:api', 'role:admin', 'throttle:60,1'])
+        ->middleware(['throttle:60,1'])
         ->name('api.v1.comptes.archives');
 
     // ✅ TRANSACTIONS (protégées)

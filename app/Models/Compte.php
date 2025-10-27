@@ -123,6 +123,7 @@ class Compte extends Model
 
         // Mapping des champs de tri
         $sortMapping = [
+            'numeroCompte' => 'numero',
             'dateCreation' => 'created_at',
             'solde' => 'solde_initial',
             'titulaire' => 'client.nom',
