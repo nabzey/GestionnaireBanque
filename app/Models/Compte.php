@@ -24,6 +24,7 @@ class Compte extends Model
         'motif_blocage',
         'metadata',
         'client_id',
+        'telephone',
     ];
 
     protected $casts = [

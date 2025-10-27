@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\Compte;
+use App\Observers\CompteObserver;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Enregistrer l'observer pour les comptes
+        Compte::observe(CompteObserver::class);
     }
 }

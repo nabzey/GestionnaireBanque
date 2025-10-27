@@ -146,6 +146,7 @@
                             "schema": {
                                 "required": [
                                     "client_id",
+                                    "telephone",
                                     "type",
                                     "devise"
                                 ],
@@ -154,6 +155,10 @@
                                         "description": "ID du client propriétaire du compte",
                                         "type": "string",
                                         "format": "uuid"
+                                    },
+                                    "telephone": {
+                                        "description": "Numéro de téléphone pour les notifications SMS",
+                                        "type": "string"
                                     },
                                     "type": {
                                         "description": "Type de compte",

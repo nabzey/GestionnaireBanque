@@ -133,8 +133,9 @@ class CompteController extends Controller
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             required={"client_id", "type", "devise"},
+     *             required={"client_id", "telephone", "type", "devise"},
      *             @OA\Property(property="client_id", type="string", format="uuid", description="ID du client propriétaire du compte"),
+     *             @OA\Property(property="telephone", type="string", description="Numéro de téléphone pour les notifications SMS"),
      *             @OA\Property(property="type", type="string", enum={"cheque", "courant", "epargne"}, description="Type de compte"),
      *             @OA\Property(property="devise", type="string", enum={"FCFA", "EUR", "USD"}, description="Devise du compte"),
      *             @OA\Property(property="solde_initial", type="number", format="float", minimum=0, description="Solde initial du compte", default=0),
@@ -167,6 +168,7 @@ class CompteController extends Controller
         try {
             $validated = $request->validate([
                 'client_id' => 'required|exists:clients,id',
+                'telephone' => 'required|string|unique:comptes,telephone',
                 'type' => 'required|in:cheque,courant,epargne',
                 'devise' => 'required|in:FCFA,EUR,USD',
                 'solde_initial' => 'numeric|min:0',
