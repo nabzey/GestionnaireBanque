@@ -71,6 +71,14 @@ class Compte extends Model
         return $numero;
     }
 
+    /**
+     * Générer un code temporaire pour la première connexion
+     */
+    public static function generateCode()
+    {
+        return strtoupper(Str::random(6));
+    }
+
     public function client()
     {
         return $this->belongsTo(Client::class);
@@ -79,6 +87,18 @@ class Compte extends Model
     public function transactions()
     {
         return $this->hasMany(Transaction::class);
+    }
+
+    /**
+     * Calculer le solde actuel basé sur les transactions
+     */
+    public function getSoldeAttribute(): float
+    {
+        // Solde initial + somme des dépôts - somme des retraits
+        $depotTotal = $this->transactions()->where('type', 'depot')->sum('montant');
+        $retraitTotal = $this->transactions()->where('type', 'retrait')->sum('montant');
+
+        return $this->solde_initial + $depotTotal - $retraitTotal;
     }
 
     // Scopes locaux

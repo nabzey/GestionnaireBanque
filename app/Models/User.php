@@ -166,19 +166,23 @@ class User extends Authenticatable
      */
     public static function registerClient(array $data): array
     {
+        // Générer un mot de passe temporaire
+        $temporaryPassword = self::generateTemporaryPassword();
+
         // Créer le client
         $client = \App\Models\Client::create([
             'nom' => $data['nom'],
             'prenom' => $data['prenom'],
             'email' => $data['email'],
-            'telephone' => $data['telephone'],
+            'telephone' => $data['telephone'] ?? null,
+            'nci' => $data['nci'] ?? null,
         ]);
 
         // Créer l'utilisateur
         $user = self::create([
             'name' => $data['prenom'] . ' ' . $data['nom'],
             'email' => $data['email'],
-            'password' => Hash::make($data['password']),
+            'password' => Hash::make($temporaryPassword),
             'email_verified_at' => now(),
             'userable_type' => 'client',
             'userable_id' => $client->id,
@@ -197,7 +201,16 @@ class User extends Authenticatable
             ],
             'token' => $token,
             'token_type' => 'Bearer',
+            'temporary_password' => $temporaryPassword,
         ];
+    }
+
+    /**
+     * Générer un mot de passe temporaire
+     */
+    public static function generateTemporaryPassword(): string
+    {
+        return \Illuminate\Support\Str::random(8);
     }
 
     /**

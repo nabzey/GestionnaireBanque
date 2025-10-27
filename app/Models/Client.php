@@ -19,6 +19,7 @@ class Client extends Model
         'prenom',
         'email',
         'telephone',
+        'nci',
         'date_naissance',
         'adresse',
         'ville',

@@ -4,12 +4,18 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Exceptions\CompteException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreCompteRequest;
 use App\Http\Resources\CompteResource;
+use App\Models\Client;
 use App\Models\Compte;
+use App\Models\User;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * @OA\Tag(
@@ -163,19 +169,69 @@ class CompteController extends Controller
      *     )
      * )
      */
-    public function store(Request $request): JsonResponse
+    public function store(StoreCompteRequest $request): JsonResponse
     {
         try {
-            $validated = $request->validate([
-                'client_id' => 'required|exists:clients,id',
-                'telephone' => 'required|string|unique:comptes,telephone',
-                'type' => 'required|in:cheque,courant,epargne',
-                'devise' => 'required|in:FCFA,EUR,USD',
-                'solde_initial' => 'numeric|min:0',
-                'statut' => 'in:actif,bloque,ferme'
+            DB::beginTransaction();
+
+            $validated = $request->validated();
+            $clientData = $validated['client'];
+
+            // Vérifier si le client existe ou le créer
+            if (empty($clientData['id'])) {
+                // Créer un nouveau client
+                $temporaryPassword = User::generateTemporaryPassword();
+                $code = Compte::generateCode();
+
+                $client = Client::create([
+                    'nom' => $clientData['titulaire'],
+                    'prenom' => '', // On peut extraire le prénom du titulaire si nécessaire
+                    'email' => $clientData['email'],
+                    'telephone' => $validated['telephone'],
+                    'nci' => $clientData['nci'],
+                    'adresse' => $clientData['adresse'] ?? null,
+                    'statut' => 'actif',
+                ]);
+
+                // Créer l'utilisateur associé
+                $user = User::create([
+                    'name' => $clientData['titulaire'],
+                    'email' => $clientData['email'],
+                    'password' => Hash::make($temporaryPassword),
+                    'email_verified_at' => now(),
+                    'userable_type' => 'client',
+                    'userable_id' => $client->id,
+                ]);
+
+                $clientId = $client->id;
+                $userCreated = true;
+            } else {
+                // Utiliser le client existant
+                $client = Client::findOrFail($clientData['id']);
+                $clientId = $client->id;
+                $temporaryPassword = null;
+                $code = null;
+                $userCreated = false;
+            }
+
+            // Créer le compte
+            $compte = Compte::create([
+                'client_id' => $clientId,
+                'numero' => Compte::generateNumero(),
+                'telephone' => $validated['telephone'],
+                'type' => $validated['type'],
+                'devise' => $validated['devise'],
+                'solde_initial' => $validated['soldeInitial'],
+                'statut' => $validated['statut'] ?? 'actif',
             ]);
 
-            $compte = Compte::create($validated);
+            DB::commit();
+
+            // Envoyer les notifications après la création réussie
+            if ($userCreated) {
+                // Déclencher l'événement pour les notifications
+                \App\Events\SendClientNotification::dispatch($client, $compte, $temporaryPassword, $code);
+            }
 
             $responseData = new CompteResource($compte);
             $responseData['_links'] = [
@@ -201,11 +257,29 @@ class CompteController extends Controller
                 ]
             ];
 
-            return $this->successResponse($responseData, 'Compte créé avec succès', 201);
+            $response = [
+                'success' => true,
+                'message' => 'Compte créé avec succès',
+                'data' => $responseData,
+            ];
+
+            // Ajouter les informations supplémentaires si un nouveau client a été créé
+            if ($userCreated) {
+                $response['credentials'] = [
+                    'email' => $clientData['email'],
+                    'temporary_password' => $temporaryPassword,
+                    'verification_code' => $code,
+                ];
+            }
+
+            return response()->json($response, 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
             return $this->errorResponse('Données invalides', 400, $e->errors());
         } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Erreur lors de la création du compte: ' . $e->getMessage());
             return $this->errorResponse('Erreur lors de la création du compte', 500);
         }
     }

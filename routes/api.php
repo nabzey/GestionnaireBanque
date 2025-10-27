@@ -25,7 +25,7 @@ Route::prefix('v1/zeynab-ba')->group(function () {
     // ✅ ROUTES COMPTES (temporairement sans authentification)
     Route::controller(CompteController::class)
         ->prefix('comptes')
-        ->middleware(['throttle:60,1'])
+        ->middleware(['throttle:60,1', \App\Http\Middleware\LoggingMiddleware::class])
         ->group(function () {
 
             Route::get('/', 'index')->name('api.v1.comptes.index');           // Liste des comptes

@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\NCIRule;
+use App\Rules\TelephoneRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreCompteRequest extends FormRequest
@@ -22,10 +24,80 @@ class StoreCompteRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'solde_initial' => 'nullable|numeric|min:0',
-            'devise' => 'nullable|string|in:FCFA,EUR,USD',
-            'type' => 'required|string|in:cheque,courant,epargne',
-            'client_id' => 'required|exists:clients,id',
+            'type' => 'required|in:cheque,courant,epargne',
+            'soldeInitial' => 'required|numeric|min:10000',
+            'devise' => 'required|in:FCFA,EUR,USD',
+            'solde' => 'sometimes|numeric|min:0',
+            'client' => 'required|array',
+            'client.id' => 'nullable|string|exists:clients,id',
+            'client.titulaire' => 'required_if:client.id,null|string|max:255',
+            'client.nci' => ['required_if:client.id,null', 'nullable', new NCIRule()],
+            'client.email' => 'required_if:client.id,null|email|unique:clients,email',
+            'client.telephone' => ['required', new TelephoneRule()],
+            'client.adresse' => 'nullable|string|max:500',
         ];
+    }
+
+    /**
+     * Get custom messages for validator errors.
+     */
+    public function messages(): array
+    {
+        return [
+            'type.required' => 'Le type de compte est obligatoire.',
+            'type.in' => 'Le type de compte doit être : cheque, courant ou epargne.',
+            'soldeInitial.required' => 'Le solde initial est obligatoire.',
+            'soldeInitial.numeric' => 'Le solde initial doit être un nombre.',
+            'soldeInitial.min' => 'Le solde initial doit être supérieur ou égal à 10 000.',
+            'devise.required' => 'La devise est obligatoire.',
+            'devise.in' => 'La devise doit être : FCFA, EUR ou USD.',
+            'solde.numeric' => 'Le solde doit être un nombre.',
+            'solde.min' => 'Le solde doit être positif.',
+            'client.required' => 'Les informations du client sont obligatoires.',
+            'client.array' => 'Les informations du client doivent être un objet.',
+            'client.id.exists' => 'Le client sélectionné n\'existe pas.',
+            'client.titulaire.required_if' => 'Le nom du titulaire est obligatoire pour un nouveau client.',
+            'client.titulaire.string' => 'Le nom du titulaire doit être une chaîne de caractères.',
+            'client.titulaire.max' => 'Le nom du titulaire ne peut pas dépasser 255 caractères.',
+            'client.nci.required_if' => 'Le numéro NCI est obligatoire pour un nouveau client.',
+            'client.email.required_if' => 'L\'email est obligatoire pour un nouveau client.',
+            'client.email.email' => 'L\'email doit être une adresse email valide.',
+            'client.email.unique' => 'Cet email est déjà utilisé.',
+            'client.telephone.required' => 'Le numéro de téléphone est obligatoire.',
+            'client.adresse.string' => 'L\'adresse doit être une chaîne de caractères.',
+            'client.adresse.max' => 'L\'adresse ne peut pas dépasser 500 caractères.',
+        ];
+    }
+
+    /**
+     * Get custom attributes for validator errors.
+     */
+    public function attributes(): array
+    {
+        return [
+            'type' => 'type de compte',
+            'soldeInitial' => 'solde initial',
+            'devise' => 'devise',
+            'solde' => 'solde',
+            'client.id' => 'client',
+            'client.titulaire' => 'nom du titulaire',
+            'client.nci' => 'numéro NCI',
+            'client.email' => 'email',
+            'client.telephone' => 'téléphone',
+            'client.adresse' => 'adresse',
+        ];
+    }
+
+    /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        // Si client.id est null ou vide, on considère que c'est un nouveau client
+        if (empty($this->client['id'])) {
+            $this->merge([
+                'client' => array_merge($this->client, ['id' => null])
+            ]);
+        }
     }
 }
