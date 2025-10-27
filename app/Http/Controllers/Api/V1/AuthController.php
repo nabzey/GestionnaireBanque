@@ -31,54 +31,6 @@ class AuthController extends Controller
         return $this->successResponse($authData, 'Connexion réussie');
     }
 
-    /**
-     * @OA\Post(
-     *     path="/api/v1/zeynab-ba/auth/register",
-     *     tags={"Authentification"},
-     *     summary="Inscription client",
-     *     description="Créer un nouveau compte client avec authentification",
-     *     operationId="register",
-     *     security={},
-     *     @OA\RequestBody(
-     *         required=true,
-     *         @OA\JsonContent(
-     *             required={"nom","prenom","email","telephone","password","password_confirmation"},
-     *             @OA\Property(property="nom", type="string", maxLength=255, example="Diop"),
-     *             @OA\Property(property="prenom", type="string", maxLength=255, example="Amadou"),
-     *             @OA\Property(property="email", type="string", format="email", example="amadou.diop@email.com"),
-     *             @OA\Property(property="telephone", type="string", example="+221771234567"),
-     *             @OA\Property(property="password", type="string", minLength=8, example="password123"),
-     *             @OA\Property(property="password_confirmation", type="string", example="password123")
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=201,
-     *         description="Inscription réussie",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="success", type="boolean", example=true),
-     *             @OA\Property(property="data", type="object",
-     *                 @OA\Property(property="user", type="object",
-     *                     @OA\Property(property="id", type="integer", example=2),
-     *                     @OA\Property(property="name", type="string", example="Amadou Diop"),
-     *                     @OA\Property(property="email", type="string", example="amadou.diop@email.com"),
-     *                     @OA\Property(property="role", type="string", example="client")
-     *                 ),
-     *                 @OA\Property(property="token", type="string", example="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...")
-     *             ),
-     *             @OA\Property(property="message", type="string", example="Inscription réussie")
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=422,
-     *         description="Données invalides",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="message", type="string", example="Erreur de validation"),
-     *             @OA\Property(property="errors", type="object")
-     *         )
-     *     )
-     * )
-     */
     public function register(Request $request): JsonResponse
     {
         $request->validate([

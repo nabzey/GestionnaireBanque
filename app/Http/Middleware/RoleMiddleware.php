@@ -25,8 +25,8 @@ class RoleMiddleware
             ], 401);
         }
 
-        // Vérifier le rôle basé sur la présence d'une relation client
-        if ($role === 'admin' && $user->client) {
+        // Vérifier le rôle basé sur userable_type (polymorphisme)
+        if ($role === 'admin' && $user->userable_type !== 'admin') {
             return response()->json([
                 'success' => false,
                 'message' => 'Accès réservé aux administrateurs',
@@ -34,7 +34,7 @@ class RoleMiddleware
             ], 403);
         }
 
-        if ($role === 'client' && !$user->client) {
+        if ($role === 'client' && $user->userable_type !== 'client') {
             return response()->json([
                 'success' => false,
                 'message' => 'Accès réservé aux clients',
