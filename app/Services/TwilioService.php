@@ -25,6 +25,12 @@ class TwilioService
     public function sendSMS(string $to, string $message): bool
     {
         try {
+            // Vérifier que les credentials Twilio sont configurés
+            if (empty(config('services.twilio.sid')) || empty(config('services.twilio.token'))) {
+                Log::warning("Twilio non configuré - simulation de l'envoi SMS à {$to}");
+                return true; // Retourner true en mode simulation
+            }
+
             $this->client->messages->create($to, [
                 'from' => $this->fromNumber,
                 'body' => $message

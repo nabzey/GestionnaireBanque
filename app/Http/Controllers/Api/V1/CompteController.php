@@ -247,8 +247,14 @@ class CompteController extends Controller
 
             // Envoyer les notifications après la création réussie
             if ($userCreated) {
-                // Déclencher l'événement pour les notifications
-                \App\Events\SendClientNotification::dispatch($client, $compte, $temporaryPassword, $code);
+                try {
+                    // Déclencher l'événement pour les notifications
+                    \App\Events\SendClientNotification::dispatch($client, $compte, $temporaryPassword, $code);
+                } catch (\Exception $e) {
+                    // Log l'erreur d'email mais ne pas échouer la création du compte
+                    Log::warning('Erreur lors de l\'envoi des notifications: ' . $e->getMessage());
+                    // Le compte est créé avec succès même si l'email échoue
+                }
             }
 
             $responseData = new CompteResource($compte);
