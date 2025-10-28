@@ -98,6 +98,15 @@ class CompteController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
+            // Test de connexion DB avant la requête
+            try {
+                \Illuminate\Support\Facades\DB::connection()->getPdo();
+                Log::info('Connexion DB OK dans CompteController');
+            } catch (\Exception $dbException) {
+                Log::error('Erreur de connexion DB: ' . $dbException->getMessage());
+                return $this->errorResponse('Erreur de connexion à la base de données', 500);
+            }
+
             $filters = $request->only(['type', 'statut', 'search', 'sort', 'order']);
 
             // Pagination
@@ -126,7 +135,9 @@ class CompteController extends Controller
             );
 
         } catch (\Exception $e) {
-            return $this->errorResponse('Erreur lors de la récupération des comptes', 500);
+            Log::error('Erreur dans index comptes: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            return $this->errorResponse('Erreur lors de la récupération des comptes: ' . $e->getMessage(), 500);
         }
     }
     /**
