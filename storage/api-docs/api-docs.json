@@ -148,20 +148,17 @@
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "client_id",
                                     "telephone",
                                     "type",
-                                    "devise"
+                                    "soldeInitial",
+                                    "devise",
+                                    "client"
                                 ],
                                 "properties": {
-                                    "client_id": {
-                                        "description": "ID du client propriétaire du compte",
-                                        "type": "string",
-                                        "format": "uuid"
-                                    },
                                     "telephone": {
-                                        "description": "Numéro de téléphone pour les notifications SMS",
-                                        "type": "string"
+                                        "description": "Numéro de téléphone pour les notifications SMS (9 chiffres)",
+                                        "type": "string",
+                                        "example": "773657435"
                                     },
                                     "type": {
                                         "description": "Type de compte",
@@ -170,7 +167,15 @@
                                             "cheque",
                                             "courant",
                                             "epargne"
-                                        ]
+                                        ],
+                                        "example": "cheque"
+                                    },
+                                    "soldeInitial": {
+                                        "description": "Solde initial du compte (minimum 10 000)",
+                                        "type": "number",
+                                        "format": "float",
+                                        "minimum": 10000,
+                                        "example": 25000
                                     },
                                     "devise": {
                                         "description": "Devise du compte",
@@ -179,14 +184,8 @@
                                             "FCFA",
                                             "EUR",
                                             "USD"
-                                        ]
-                                    },
-                                    "solde_initial": {
-                                        "description": "Solde initial du compte",
-                                        "type": "number",
-                                        "format": "float",
-                                        "default": 0,
-                                        "minimum": 0
+                                        ],
+                                        "example": "FCFA"
                                     },
                                     "statut": {
                                         "description": "Statut du compte",
@@ -196,7 +195,46 @@
                                             "actif",
                                             "bloque",
                                             "ferme"
-                                        ]
+                                        ],
+                                        "example": "actif"
+                                    },
+                                    "client": {
+                                        "description": "Informations du nouveau client",
+                                        "type": "object",
+                                        "required": [
+                                            "titulaire",
+                                            "nci",
+                                            "email",
+                                            "telephone"
+                                        ],
+                                        "properties": {
+                                            "titulaire": {
+                                                "description": "Nom complet du titulaire",
+                                                "type": "string",
+                                                "example": "zeynab ba"
+                                            },
+                                            "nci": {
+                                                "description": "Numéro de carte nationale d'identité (13 chiffres)",
+                                                "type": "string",
+                                                "example": "1234567890123"
+                                            },
+                                            "email": {
+                                                "description": "Adresse email unique",
+                                                "type": "string",
+                                                "format": "email",
+                                                "example": "zeynabba45@gmail.com"
+                                            },
+                                            "telephone": {
+                                                "description": "Numéro de téléphone du client (9 chiffres)",
+                                                "type": "string",
+                                                "example": "773657435"
+                                            },
+                                            "adresse": {
+                                                "description": "Adresse complète (optionnel)",
+                                                "type": "string",
+                                                "example": "123 Rue de la Paix, Dakar"
+                                            }
+                                        }
                                     }
                                 },
                                 "type": "object"
