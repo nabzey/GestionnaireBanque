@@ -20,8 +20,8 @@
                 "tags": [
                     "Comptes"
                 ],
-                "summary": "Lister tous les comptes",
-                "description": "Récupère la liste paginée des comptes bancaires.",
+                "summary": "Lister tous les comptes actifs",
+                "description": "Récupère la liste paginée des comptes bancaires actifs. Les comptes bloqués sont stockés dans Neon et ne sont pas visibles ici.",
                 "operationId": "getComptes",
                 "parameters": [
                     {
@@ -54,7 +54,6 @@
                             "type": "string",
                             "enum": [
                                 "cheque",
-                                "courant",
                                 "epargne"
                             ]
                         }
@@ -62,14 +61,12 @@
                     {
                         "name": "statut",
                         "in": "query",
-                        "description": "Filtrer par statut",
+                        "description": "Filtrer par statut (toujours 'actif' pour cet endpoint)",
                         "required": false,
                         "schema": {
                             "type": "string",
                             "enum": [
-                                "actif",
-                                "bloque",
-                                "ferme"
+                                "actif"
                             ]
                         }
                     },
@@ -93,7 +90,8 @@
                                 "numeroCompte",
                                 "solde",
                                 "dateCreation",
-                                "statut"
+                                "statut",
+                                "titulaire"
                             ]
                         }
                     },
@@ -114,7 +112,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Liste des comptes récupérée avec succès",
+                        "description": "Liste des comptes actifs récupérée avec succès",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -151,27 +149,31 @@
                                     "telephone",
                                     "type",
                                     "soldeInitial",
-                                    "devise",
-                                    "client"
+                                    "devise"
                                 ],
                                 "properties": {
-                                    "telephone": {
-                                        "description": "Numéro de téléphone pour les notifications SMS (9 chiffres)",
+                                    "client_id": {
+                                        "description": "ID du client existant (optionnel)",
                                         "type": "string",
-                                        "example": "773657435"
+                                        "format": "uuid",
+                                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                                    },
+                                    "telephone": {
+                                        "description": "Numéro de téléphone pour les notifications SMS",
+                                        "type": "string",
+                                        "example": "+221771234567"
                                     },
                                     "type": {
                                         "description": "Type de compte",
                                         "type": "string",
                                         "enum": [
                                             "cheque",
-                                            "courant",
                                             "epargne"
                                         ],
                                         "example": "cheque"
                                     },
                                     "soldeInitial": {
-                                        "description": "Solde initial du compte (minimum 10 000)",
+                                        "description": "Solde initial du compte",
                                         "type": "number",
                                         "format": "float",
                                         "minimum": 10000,
@@ -188,7 +190,7 @@
                                         "example": "FCFA"
                                     },
                                     "statut": {
-                                        "description": "Statut du compte",
+                                        "description": "Statut du compte (seuls les comptes épargne peuvent être bloqués)",
                                         "type": "string",
                                         "default": "actif",
                                         "enum": [
@@ -199,42 +201,36 @@
                                         "example": "actif"
                                     },
                                     "client": {
-                                        "description": "Informations du nouveau client",
-                                        "type": "object",
-                                        "required": [
-                                            "titulaire",
-                                            "nci",
-                                            "email",
-                                            "telephone"
-                                        ],
+                                        "description": "Informations du nouveau client (requis si client_id non fourni)",
                                         "properties": {
                                             "titulaire": {
                                                 "description": "Nom complet du titulaire",
                                                 "type": "string",
-                                                "example": "zeynab ba"
+                                                "example": "Amadou Diop"
                                             },
                                             "nci": {
-                                                "description": "Numéro de carte nationale d'identité (13 chiffres)",
+                                                "description": "Numéro NCI",
                                                 "type": "string",
                                                 "example": "1234567890123"
                                             },
                                             "email": {
-                                                "description": "Adresse email unique",
+                                                "description": "Email du client",
                                                 "type": "string",
                                                 "format": "email",
-                                                "example": "zeynabba45@gmail.com"
+                                                "example": "amadou.diop@example.com"
                                             },
                                             "telephone": {
-                                                "description": "Numéro de téléphone du client (9 chiffres)",
+                                                "description": "Téléphone du client",
                                                 "type": "string",
-                                                "example": "773657435"
+                                                "example": "+221771234567"
                                             },
                                             "adresse": {
-                                                "description": "Adresse complète (optionnel)",
+                                                "description": "Adresse du client",
                                                 "type": "string",
                                                 "example": "123 Rue de la Paix, Dakar"
                                             }
-                                        }
+                                        },
+                                        "type": "object"
                                     }
                                 },
                                 "type": "object"
@@ -333,12 +329,41 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Accès non autorisé (temporairement désactivé)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "Compte non trouvé",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "error": {
+                                            "properties": {
+                                                "code": {
+                                                    "type": "string",
+                                                    "example": "COMPTE_NOT_FOUND"
+                                                },
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "Le compte avec l'ID spécifié n'existe pas"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
@@ -359,8 +384,8 @@
                 "tags": [
                     "Comptes"
                 ],
-                "summary": "Mettre à jour un compte",
-                "description": "Met à jour les informations d'un compte bancaire.",
+                "summary": "Mettre à jour un compte ou gérer blocage/déblocage",
+                "description": "Met à jour les informations d'un compte bancaire. Permet également de bloquer (archiver dans Neon) ou débloquer (restaurer depuis Neon) un compte épargne.",
                 "operationId": "updateCompte",
                 "parameters": [
                     {
@@ -385,22 +410,30 @@
                                         "type": "string",
                                         "enum": [
                                             "cheque",
-                                            "courant",
                                             "epargne"
-                                        ]
+                                        ],
+                                        "example": "cheque"
                                     },
                                     "statut": {
-                                        "description": "Statut du compte",
+                                        "description": "Statut du compte. 'bloque' archive dans Neon, 'actif' restaure depuis Neon",
                                         "type": "string",
                                         "enum": [
                                             "actif",
                                             "bloque",
                                             "ferme"
-                                        ]
+                                        ],
+                                        "example": "bloque"
                                     },
                                     "motif_blocage": {
-                                        "description": "Motif du blocage si le compte est bloqué",
+                                        "description": "Motif du blocage (requis si statut=bloque)",
                                         "type": "string",
+                                        "example": "Inactivité prolongée",
+                                        "nullable": true
+                                    },
+                                    "duree_blocage": {
+                                        "description": "Durée du blocage en jours (requis si statut=bloque, 1-365 jours)",
+                                        "type": "integer",
+                                        "example": 30,
                                         "nullable": true
                                     }
                                 },
@@ -434,7 +467,7 @@
                         }
                     },
                     "400": {
-                        "description": "Données invalides",
+                        "description": "Données invalides ou opération non autorisée",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -470,7 +503,7 @@
                     "Comptes"
                 ],
                 "summary": "Supprimer un compte",
-                "description": "Supprime un compte bancaire (soft delete).",
+                "description": "Supprime un compte bancaire (soft delete). Les comptes bloqués ne peuvent pas être supprimés.",
                 "operationId": "deleteCompte",
                 "parameters": [
                     {
@@ -513,10 +546,6 @@
                                                                     "type": "string",
                                                                     "example": "/api/v1/zeynab-ba/comptes"
                                                                 },
-                                                                "method": {
-                                                                    "type": "string",
-                                                                    "example": "GET"
-                                                                },
                                                                 "rel": {
                                                                     "type": "string",
                                                                     "example": "collection"
@@ -532,6 +561,16 @@
                                         }
                                     },
                                     "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Impossible de supprimer un compte bloqué",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
                                 }
                             }
                         }
@@ -598,7 +637,6 @@
                             "type": "string",
                             "enum": [
                                 "cheque",
-                                "courant",
                                 "epargne"
                             ]
                         }
@@ -637,7 +675,8 @@
                                 "numeroCompte",
                                 "solde",
                                 "dateCreation",
-                                "statut"
+                                "statut",
+                                "titulaire"
                             ]
                         }
                     },
@@ -669,6 +708,125 @@
                     },
                     "500": {
                         "description": "Erreur serveur",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/zeynab-ba/comptes-neon": {
+            "get": {
+                "tags": [
+                    "Comptes"
+                ],
+                "summary": "Lister les comptes bloqués dans Neon",
+                "description": "Récupère la liste paginée des comptes bloqués stockés dans la base Neon. Ces comptes peuvent être débloqués dans les 2h suivant leur blocage.",
+                "operationId": "getNeonComptes",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Numéro de la page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Nombre d'éléments par page (max 100)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 10,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "description": "Filtrer par type de compte",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "cheque",
+                                "epargne"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "statut",
+                        "in": "query",
+                        "description": "Filtrer par statut (toujours 'bloque' pour cet endpoint)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "bloque"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Recherche par numéro de compte ou titulaire",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Champ de tri",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "numeroCompte",
+                                "solde",
+                                "dateCreation",
+                                "statut",
+                                "titulaire"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "order",
+                        "in": "query",
+                        "description": "Ordre de tri",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des comptes bloqués récupérée avec succès depuis Neon",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ComptesResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Erreur serveur ou base Neon indisponible",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -794,7 +952,6 @@
                         "type": "string",
                         "enum": [
                             "cheque",
-                            "courant",
                             "epargne"
                         ],
                         "example": "epargne"
@@ -924,7 +1081,6 @@
                         "type": "string",
                         "enum": [
                             "cheque",
-                            "courant",
                             "epargne"
                         ],
                         "example": "epargne"

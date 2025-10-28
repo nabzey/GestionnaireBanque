@@ -37,12 +37,29 @@ trait ApiResponseTrait
      *
      * @param mixed $data
      * @param string|null $message
+     * @param array|null $extra
      * @param int $statusCode
      * @return JsonResponse
      */
-    protected function successResponse($data = null, string $message = null, int $statusCode = 200): JsonResponse
+    protected function successResponse($data = null, string $message = null, array $extra = null, int $statusCode = 200): JsonResponse
     {
-        return $this->apiResponse(true, $data, $message, $statusCode);
+        $response = [
+            'success' => true,
+        ];
+
+        if ($data !== null) {
+            $response['data'] = $data;
+        }
+
+        if ($message !== null) {
+            $response['message'] = $message;
+        }
+
+        if ($extra !== null) {
+            $response = array_merge($response, $extra);
+        }
+
+        return response()->json($response, $statusCode);
     }
 
     /**
@@ -79,81 +96,22 @@ trait ApiResponseTrait
         ];
 
         $links = [
-            'self' => [
-                'href' => $paginator->url($paginator->currentPage()),
-                'method' => 'GET',
-                'rel' => 'self'
-            ],
-            'first' => [
-                'href' => $paginator->url(1),
-                'method' => 'GET',
-                'rel' => 'first'
-            ],
-            'last' => [
-                'href' => $paginator->url($paginator->lastPage()),
-                'method' => 'GET',
-                'rel' => 'last'
-            ],
+            'self' => $paginator->url($paginator->currentPage()),
+            'first' => $paginator->url(1),
+            'last' => $paginator->url($paginator->lastPage()),
         ];
 
         if ($paginator->hasMorePages()) {
-            $links['next'] = [
-                'href' => $paginator->nextPageUrl(),
-                'method' => 'GET',
-                'rel' => 'next'
-            ];
+            $links['next'] = $paginator->nextPageUrl();
         }
 
         if ($paginator->currentPage() > 1) {
-            $links['previous'] = [
-                'href' => $paginator->previousPageUrl(),
-                'method' => 'GET',
-                'rel' => 'previous'
-            ];
+            $links['previous'] = $paginator->previousPageUrl();
         }
 
-        // Ajouter des liens HATEOAS pour les actions sur les comptes individuels
-        $embedded = [];
-        foreach ($data as $compte) {
-            $embedded[] = [
-                'id' => $compte->id,
-                'numeroCompte' => $compte->numero,
-                'titulaire' => $compte->client ? $compte->client->nom_complet : null,
-                'type' => $compte->type,
-                'solde' => $compte->solde_initial,
-                'devise' => $compte->devise,
-                'dateCreation' => $compte->created_at->toISOString(),
-                'statut' => $compte->statut,
-                'motifBlocage' => $compte->motif_blocage,
-                'metadata' => $compte->metadata,
-                '_links' => [
-                    'self' => [
-                        'href' => url('/api/v1/comptes/' . $compte->id),
-                        'method' => 'GET',
-                        'rel' => 'self'
-                    ],
-                    'update' => [
-                        'href' => url('/api/v1/comptes/' . $compte->id),
-                        'method' => 'PUT',
-                        'rel' => 'update'
-                    ],
-                    'delete' => [
-                        'href' => url('/api/v1/comptes/' . $compte->id),
-                        'method' => 'DELETE',
-                        'rel' => 'delete'
-                    ]
-                ]
-            ];
-        }
-
-        $responseData = [
-            '_links' => $links,
-            '_embedded' => [
-                'comptes' => $embedded
-            ],
+        return $this->successResponse($data, $message, [
             'pagination' => $pagination,
-        ];
-
-        return $this->successResponse($responseData, $message);
+            'links' => $links
+        ]);
     }
 }

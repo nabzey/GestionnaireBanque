@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Exceptions\CompteException;
+use App\Exceptions\CompteNotFoundException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCompteRequest;
 use App\Http\Resources\CompteResource;
 use App\Models\Client;
 use App\Models\Compte;
 use App\Models\User;
+use App\Services\NeonService;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -27,11 +29,34 @@ class CompteController extends Controller
 {
     use ApiResponseTrait;
 
+    protected NeonService $neonService;
+
+    public function __construct(NeonService $neonService)
+    {
+        $this->neonService = $neonService;
+    }
+
+    /**
+     * Envoyer une notification SMS
+     */
+    private function sendSmsNotification(string $telephone, string $message): void
+    {
+        try {
+            // Utiliser le service Twilio existant
+            $twilioService = app(\App\Services\TwilioService::class);
+            $twilioService->sendSms($telephone, $message);
+        } catch (\Exception $e) {
+            // Log l'erreur mais ne pas échouer l'opération
+            Log::warning("Erreur envoi SMS: " . $e->getMessage());
+            throw $e; // Re-throw pour permettre la gestion au niveau supérieur si nécessaire
+        }
+    }
+
     /**
      * @OA\Get(
      *     path="/api/v1/zeynab-ba/comptes",
-     *     summary="Lister tous les comptes",
-     *     description="Récupère la liste paginée des comptes bancaires.",
+     *     summary="Lister tous les comptes actifs",
+     *     description="Récupère la liste paginée des comptes bancaires actifs. Les comptes bloqués sont stockés dans Neon et ne sont pas visibles ici.",
      *     operationId="getComptes",
      *     tags={"Comptes"},
      *     @OA\Parameter(
@@ -53,14 +78,14 @@ class CompteController extends Controller
      *         in="query",
      *         description="Filtrer par type de compte",
      *         required=false,
-     *         @OA\Schema(type="string", enum={"cheque", "courant", "epargne"})
+     *         @OA\Schema(type="string", enum={"cheque", "epargne"})
      *     ),
      *     @OA\Parameter(
      *         name="statut",
      *         in="query",
-     *         description="Filtrer par statut",
+     *         description="Filtrer par statut (toujours 'actif' pour cet endpoint)",
      *         required=false,
-     *         @OA\Schema(type="string", enum={"actif", "bloque", "ferme"})
+     *         @OA\Schema(type="string", enum={"actif"})
      *     ),
      *     @OA\Parameter(
      *         name="search",
@@ -74,7 +99,7 @@ class CompteController extends Controller
      *         in="query",
      *         description="Champ de tri",
      *         required=false,
-     *         @OA\Schema(type="string", enum={"numeroCompte", "solde", "dateCreation", "statut"})
+     *         @OA\Schema(type="string", enum={"numeroCompte", "solde", "dateCreation", "statut", "titulaire"})
      *     ),
      *     @OA\Parameter(
      *         name="order",
@@ -85,7 +110,7 @@ class CompteController extends Controller
      *     ),
      *     @OA\Response(
      *         response=200,
-     *         description="Liste des comptes récupérée avec succès",
+     *         description="Liste des comptes actifs récupérée avec succès",
      *         @OA\JsonContent(ref="#/components/schemas/ComptesResponse")
      *     ),
      *     @OA\Response(
@@ -113,18 +138,19 @@ class CompteController extends Controller
             $limit = min($request->get('limit', 10), 100);
 
             $query = Compte::with('client')
+                ->where('statut', 'actif')
                 ->filterAndSort($filters);
 
-            // Temporairement désactivé : vérification d'authentification
-            // // Si c'est un client (pas admin), filtrer uniquement ses comptes
-            // if ($request->user() && !$request->user()->hasRole('admin')) {
-            //     $client = $request->user()->client;
-            //     if ($client) {
-            //         $query->where('client_id', $client->id);
-            //     } else {
-            //         return $this->errorResponse('Client non trouvé', 404);
-            //     }
-            // }
+            // Vérification d'authentification et filtrage par utilisateur
+            // Note: Les comptes bloqués sont maintenant dans Neon, donc cette requête ne retourne que les comptes actifs
+            if ($request->user() && !$request->user()->hasRole('admin')) {
+                $client = $request->user()->client;
+                if ($client) {
+                    $query->byClientId($client->id);
+                } else {
+                    return $this->errorResponse('Client non trouvé', 404);
+                }
+            }
 
             $comptes = $query->paginate($limit);
 
@@ -153,10 +179,10 @@ class CompteController extends Controller
      *             required={"telephone", "type", "soldeInitial", "devise"},
      *             @OA\Property(property="client_id", type="string", format="uuid", description="ID du client existant (optionnel)", example="550e8400-e29b-41d4-a716-446655440000"),
      *             @OA\Property(property="telephone", type="string", description="Numéro de téléphone pour les notifications SMS", example="+221771234567"),
-     *             @OA\Property(property="type", type="string", enum={"cheque", "courant", "epargne"}, description="Type de compte", example="cheque"),
+     *             @OA\Property(property="type", type="string", enum={"cheque", "epargne"}, description="Type de compte", example="cheque"),
      *             @OA\Property(property="soldeInitial", type="number", format="float", minimum=10000, description="Solde initial du compte", example=25000),
      *             @OA\Property(property="devise", type="string", enum={"FCFA", "EUR", "USD"}, description="Devise du compte", example="FCFA"),
-     *             @OA\Property(property="statut", type="string", enum={"actif", "bloque", "ferme"}, description="Statut du compte", example="actif", default="actif"),
+     *             @OA\Property(property="statut", type="string", enum={"actif", "bloque", "ferme"}, description="Statut du compte (seuls les comptes épargne peuvent être bloqués)", example="actif", default="actif"),
      *             @OA\Property(property="client", type="object", description="Informations du nouveau client (requis si client_id non fourni)",
      *                 @OA\Property(property="titulaire", type="string", description="Nom complet du titulaire", example="Amadou Diop"),
      *                 @OA\Property(property="nci", type="string", description="Numéro NCI", example="1234567890123"),
@@ -200,6 +226,12 @@ class CompteController extends Controller
                 // Créer un nouveau client
                 $temporaryPassword = User::generateTemporaryPassword();
                 $code = Compte::generateCode();
+
+                // Vérifier si le téléphone est déjà utilisé
+                $existingClient = Client::where('telephone', $validated['telephone'])->first();
+                if ($existingClient) {
+                    throw new \Exception("Un client avec ce numéro de téléphone existe déjà: {$existingClient->nom_complet}");
+                }
 
                 $client = Client::create([
                     'nom' => $clientData['titulaire'],
@@ -281,22 +313,21 @@ class CompteController extends Controller
                 ]
             ];
 
-            $response = [
-                'success' => true,
-                'message' => 'Compte créé avec succès',
-                'data' => $responseData,
-            ];
+            $responseData = new CompteResource($compte);
+            $response = $this->successResponse($responseData, 'Compte créé avec succès', null, 201);
 
             // Ajouter les informations supplémentaires si un nouveau client a été créé
             if ($userCreated) {
+                $response = $response->getData(true);
                 $response['credentials'] = [
                     'email' => $clientData['email'],
                     'temporary_password' => $temporaryPassword,
                     'verification_code' => $code,
                 ];
+                return response()->json($response, 201);
             }
 
-            return response()->json($response, 201);
+            return $response;
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
@@ -307,6 +338,17 @@ class CompteController extends Controller
             Log::error('Erreur lors de la création du compte: ' . $e->getMessage());
             Log::error('Stack trace: ' . $e->getTraceAsString());
             Log::error('Request data: ' . json_encode($request->all()));
+
+            // Gestion spécifique des erreurs de contrainte unique
+            if (str_contains($e->getMessage(), 'duplicate key value violates unique constraint')) {
+                if (str_contains($e->getMessage(), 'clients_email_unique')) {
+                    return $this->errorResponse('Un client avec cet email existe déjà', 422);
+                }
+                if (str_contains($e->getMessage(), 'clients_telephone_unique')) {
+                    return $this->errorResponse('Un client avec ce numéro de téléphone existe déjà', 422);
+                }
+            }
+
             return $this->errorResponse('Erreur lors de la création du compte: ' . $e->getMessage(), 500);
         }
     }
@@ -335,9 +377,20 @@ class CompteController extends Controller
      *         )
      *     ),
      *     @OA\Response(
+     *         response=403,
+     *         description="Accès non autorisé (temporairement désactivé)",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     ),
+     *     @OA\Response(
      *         response=404,
      *         description="Compte non trouvé",
-     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="object",
+     *                 @OA\Property(property="code", type="string", example="COMPTE_NOT_FOUND"),
+     *                 @OA\Property(property="message", type="string", example="Le compte avec l'ID spécifié n'existe pas")
+     *             )
+     *         )
      *     ),
      *     @OA\Response(
      *         response=500,
@@ -349,46 +402,70 @@ class CompteController extends Controller
     public function show(Request $request, string $id): JsonResponse
     {
         try {
-            $compte = Compte::with('client')->findOrFail($id);
+            // Validation de l'ID
+            if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $id)) {
+                throw new CompteNotFoundException();
+            }
 
-            // Temporairement désactivé : vérification d'authentification
-            // // Vérifier que le client ne peut voir que ses propres comptes
-            // if ($request->user() && !$request->user()->hasRole('admin')) {
-            //     $client = $request->user()->client;
-            //     if (!$client || $compte->client_id !== $client->id) {
-            //         return $this->errorResponse('Accès non autorisé à ce compte', 403);
-            //     }
-            // }
+            // Vérification d'authentification
+            $user = $request->user();
+            $isAdmin = $user && $user->hasRole('admin');
 
-            $responseData = new CompteResource($compte);
-            $responseData['_links'] = [
-                'self' => [
-                    'href' => url('/api/v1/zeynab-ba/comptes/' . $compte->id),
-                    'method' => 'GET',
-                    'rel' => 'self'
-                ],
-                'update' => [
-                    'href' => url('/api/v1/zeynab-ba/comptes/' . $compte->id),
-                    'method' => 'PUT',
-                    'rel' => 'update'
-                ],
-                'delete' => [
-                    'href' => url('/api/v1/zeynab-ba/comptes/' . $compte->id),
-                    'method' => 'DELETE',
-                    'rel' => 'delete'
-                ],
-                'collection' => [
-                    'href' => url('/api/v1/zeynab-ba/comptes'),
-                    'method' => 'GET',
-                    'rel' => 'collection'
-                ]
-            ];
+            // 1. Recherche en base locale d'abord (comptes actifs uniquement)
+            $compte = Compte::with('client')->find($id);
 
-            return $this->successResponse($responseData, 'Détails du compte récupérés avec succès');
+            if ($compte) {
+                // Vérification d'autorisations pour comptes locaux
+                if (!$isAdmin) {
+                    $client = $user->client ?? null;
+                    if (!$client || $compte->client_id !== $client->id) {
+                        return $this->errorResponse('Accès non autorisé à ce compte', 403);
+                    }
+                }
 
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return $this->errorResponse('Compte non trouvé', 404);
+                // Ajouter l'indicateur de source
+                $compte->source = 'local';
+
+                return $this->successResponse(
+                    new CompteResource($compte),
+                    'Détails du compte récupérés avec succès'
+                );
+            }
+
+            // 2. Si pas trouvé en local, rechercher dans Neon (comptes bloqués/archivés)
+            if ($this->neonService->isConnected()) {
+                $compteNeon = $this->neonService->findCompte($id);
+
+                if ($compteNeon) {
+                    // Vérification d'autorisations pour comptes Neon (uniquement admin)
+                    if (!$isAdmin) {
+                        return $this->errorResponse('Accès non autorisé aux comptes archivés', 403);
+                    }
+
+                    // Créer un objet Compte temporaire pour la resource
+                    $compteObject = new Compte($compteNeon);
+                    $compteObject->source = 'neon';
+
+                    // Ajouter les relations manuellement
+                    if (isset($compteNeon['client'])) {
+                        $client = new Client($compteNeon['client']);
+                        $compteObject->setRelation('client', $client);
+                    }
+
+                    return $this->successResponse(
+                        new CompteResource($compteObject),
+                        'Détails du compte récupérés depuis les archives'
+                    );
+                }
+            }
+
+            // 3. Compte non trouvé dans aucune source
+            throw new CompteNotFoundException();
+
+        } catch (CompteNotFoundException $e) {
+            return $e->render();
         } catch (\Exception $e) {
+            Log::error('Erreur dans show compte: ' . $e->getMessage());
             return $this->errorResponse('Erreur lors de la récupération du compte', 500);
         }
     }
@@ -396,8 +473,8 @@ class CompteController extends Controller
     /**
      * @OA\Put(
      *     path="/api/v1/zeynab-ba/comptes/{id}",
-     *     summary="Mettre à jour un compte",
-     *     description="Met à jour les informations d'un compte bancaire.",
+     *     summary="Mettre à jour un compte ou gérer blocage/déblocage",
+     *     description="Met à jour les informations d'un compte bancaire. Permet également de bloquer (archiver dans Neon) ou débloquer (restaurer depuis Neon) un compte épargne.",
      *     operationId="updateCompte",
      *     tags={"Comptes"},
      *     @OA\Parameter(
@@ -410,9 +487,10 @@ class CompteController extends Controller
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             @OA\Property(property="type", type="string", enum={"cheque", "courant", "epargne"}, description="Type de compte"),
-     *             @OA\Property(property="statut", type="string", enum={"actif", "bloque", "ferme"}, description="Statut du compte"),
-     *             @OA\Property(property="motif_blocage", type="string", nullable=true, description="Motif du blocage si le compte est bloqué")
+     *             @OA\Property(property="type", type="string", enum={"cheque", "epargne"}, description="Type de compte", example="cheque"),
+     *             @OA\Property(property="statut", type="string", enum={"actif", "bloque", "ferme"}, description="Statut du compte. 'bloque' archive dans Neon, 'actif' restaure depuis Neon", example="bloque"),
+     *             @OA\Property(property="motif_blocage", type="string", nullable=true, description="Motif du blocage (requis si statut=bloque)", example="Inactivité prolongée"),
+     *             @OA\Property(property="duree_blocage", type="integer", nullable=true, description="Durée du blocage en jours (requis si statut=bloque, 1-365 jours)", example=30)
      *         )
      *     ),
      *     @OA\Response(
@@ -426,7 +504,7 @@ class CompteController extends Controller
      *     ),
      *     @OA\Response(
      *         response=400,
-     *         description="Données invalides",
+     *         description="Données invalides ou opération non autorisée",
      *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
      *     ),
      *     @OA\Response(
@@ -445,12 +523,125 @@ class CompteController extends Controller
     {
         try {
             $validated = $request->validate([
-                'type' => 'sometimes|in:cheque,courant,epargne',
+                'type' => 'sometimes|in:cheque,epargne',
                 'statut' => 'sometimes|in:actif,bloque,ferme',
-                'motif_blocage' => 'nullable|string'
+                'motif_blocage' => 'nullable|string',
+                'duree_blocage' => 'nullable|integer|min:1|max:365'
             ]);
 
             $compte = Compte::findOrFail($id);
+
+            // Gestion du blocage/déblocage
+            if (isset($validated['statut'])) {
+                if ($validated['statut'] === 'bloque') {
+                    // BLOQUER un compte
+                    if (!$compte->canBeBlocked()) {
+                        return $this->errorResponse('Impossible de bloquer ce compte : seuls les comptes épargne actifs peuvent être bloqués', 400);
+                    }
+
+                    if (!isset($validated['motif_blocage']) || empty($validated['motif_blocage'])) {
+                        return $this->errorResponse('Le motif de blocage est requis', 400);
+                    }
+
+                    if (!isset($validated['duree_blocage'])) {
+                        return $this->errorResponse('La durée de blocage est requise', 400);
+                    }
+
+                    // Calculer les dates de blocage
+                    $dateDebut = now();
+                    $dateFin = $dateDebut->copy()->addDays($validated['duree_blocage']);
+
+                    $validated['date_debut_blocage'] = $dateDebut;
+                    $validated['date_fin_blocage'] = $dateFin;
+
+                    // Préparer les données pour archivage dans Neon
+                    $compteData = [
+                        'id' => $compte->id,
+                        'numero' => $compte->numero,
+                        'solde_initial' => $compte->solde_initial,
+                        'devise' => $compte->devise,
+                        'type' => $compte->type,
+                        'statut' => 'bloque',
+                        'motif_blocage' => $validated['motif_blocage'],
+                        'date_debut_blocage' => $dateDebut,
+                        'date_fin_blocage' => $dateFin,
+                        'metadata' => json_encode($compte->metadata ?? []),
+                        'client_id' => $compte->client_id,
+                        'telephone' => $compte->telephone,
+                        'created_at' => $compte->created_at,
+                        'updated_at' => now(),
+                        'deleted_at' => null
+                    ];
+
+                    // Archiver dans Neon (si disponible)
+                    $archiveSuccess = $this->neonService->archiveCompte($compteData);
+
+                    if (!$archiveSuccess) {
+                        Log::warning("Archivage Neon échoué pour {$compte->numero}, compte reste en base locale avec statut 'bloque'");
+                        // Ne pas échouer l'opération, juste logger l'erreur
+                        // Le compte reste bloqué en base locale
+                    } else {
+                        // Supprimer de la base locale après archivage réussi
+                        $compte->delete(); // Soft delete
+                        Log::info("Compte {$compte->numero} archivé dans Neon et supprimé localement");
+                    }
+
+                    // Envoyer notification SMS de blocage
+                    try {
+                        $message = "Votre compte {$compte->numero} a été bloqué pour motif: {$validated['motif_blocage']}. Durée: {$validated['duree_blocage']} jours. Vous pouvez le débloquer dans les 2h.";
+                        $this->sendSmsNotification($compte->telephone, $message);
+                        Log::info("SMS de blocage envoyé au {$compte->telephone}");
+                    } catch (\Exception $e) {
+                        Log::warning("Erreur envoi SMS blocage: " . $e->getMessage());
+                    }
+
+                } elseif ($validated['statut'] === 'actif' && $compte->isBlocked()) {
+                    // DÉBLOQUER un compte - rechercher d'abord dans Neon
+                    $compteNeon = $this->neonService->findCompte($compte->id);
+
+                    if (!$compteNeon) {
+                        return $this->errorResponse('Compte non trouvé dans les archives', 404);
+                    }
+
+                    // Vérifier que le déblocage est possible (dans les 2h)
+                    $dateDebutBlocage = isset($compteNeon['date_debut_blocage']) ? \Carbon\Carbon::parse($compteNeon['date_debut_blocage']) : null;
+                    if (!$dateDebutBlocage || $dateDebutBlocage->diffInHours(now()) > 2) {
+                        return $this->errorResponse('Le délai de 2 heures pour le déblocage est dépassé', 400);
+                    }
+
+                    // Restaurer depuis Neon vers la base locale
+                    $restoreSuccess = $this->neonService->restoreCompte($compte->id);
+
+                    if (!$restoreSuccess) {
+                        return $this->errorResponse('Erreur lors de la restauration du compte', 500);
+                    }
+
+                    // Recharger le compte depuis la base locale maintenant restauré
+                    $compte->refresh();
+
+                    // Envoyer notification SMS de déblocage
+                    try {
+                        $message = "Votre compte {$compte->numero} a été débloqué avec succès. Vous pouvez maintenant utiliser votre compte normalement.";
+                        $this->sendSmsNotification($compte->telephone, $message);
+                        Log::info("SMS de déblocage envoyé au {$compte->telephone}");
+                    } catch (\Exception $e) {
+                        Log::warning("Erreur envoi SMS déblocage: " . $e->getMessage());
+                    }
+
+                } elseif ($validated['statut'] === 'actif' && !$compte->isBlocked()) {
+                    // Modification normale d'un compte actif
+                    // Pas de logique spéciale
+                } else {
+                    // Autres statuts (ferme) ou changements non autorisés
+                    return $this->errorResponse('Changement de statut non autorisé', 400);
+                }
+            } else {
+                // Modification normale (sans changement de statut)
+                if ($compte->isBlocked()) {
+                    return $this->errorResponse('Impossible de modifier un compte bloqué', 400);
+                }
+            }
+
             $compte->update($validated);
 
             $responseData = new CompteResource($compte);
@@ -487,11 +678,12 @@ class CompteController extends Controller
             return $this->errorResponse('Erreur lors de la mise à jour du compte', 500);
         }
     }
+
     /**
      * @OA\Delete(
      *     path="/api/v1/zeynab-ba/comptes/{id}",
      *     summary="Supprimer un compte",
-     *     description="Supprime un compte bancaire (soft delete).",
+     *     description="Supprime un compte bancaire (soft delete). Les comptes bloqués ne peuvent pas être supprimés.",
      *     operationId="deleteCompte",
      *     tags={"Comptes"},
      *     @OA\Parameter(
@@ -512,12 +704,16 @@ class CompteController extends Controller
      *                 @OA\Property(property="_links", type="object",
      *                     @OA\Property(property="collection", type="object",
      *                         @OA\Property(property="href", type="string", example="/api/v1/zeynab-ba/comptes"),
-     *                         @OA\Property(property="method", type="string", example="GET"),
      *                         @OA\Property(property="rel", type="string", example="collection")
      *                     )
      *                 )
      *             )
      *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="Impossible de supprimer un compte bloqué",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
      *     ),
      *     @OA\Response(
      *         response=404,
@@ -535,6 +731,11 @@ class CompteController extends Controller
     {
         try {
             $compte = Compte::findOrFail($id);
+
+            // Vérifier que le compte n'est pas bloqué
+            if ($compte->isBlocked()) {
+                return $this->errorResponse('Impossible de supprimer un compte bloqué', 400);
+            }
 
             $compte->delete(); // Soft delete
 
@@ -584,7 +785,7 @@ class CompteController extends Controller
      *         in="query",
      *         description="Filtrer par type de compte",
      *         required=false,
-     *         @OA\Schema(type="string", enum={"cheque", "courant", "epargne"})
+     *         @OA\Schema(type="string", enum={"cheque", "epargne"})
      *     ),
      *     @OA\Parameter(
      *         name="statut",
@@ -605,7 +806,7 @@ class CompteController extends Controller
      *         in="query",
      *         description="Champ de tri",
      *         required=false,
-     *         @OA\Schema(type="string", enum={"numeroCompte", "solde", "dateCreation", "statut"})
+     *         @OA\Schema(type="string", enum={"numeroCompte", "solde", "dateCreation", "statut", "titulaire"})
      *     ),
      *     @OA\Parameter(
      *         name="order",
@@ -645,6 +846,118 @@ class CompteController extends Controller
 
         } catch (\Exception $e) {
             return $this->errorResponse('Erreur lors de la récupération des comptes archivés', 500);
+        }
+    }
+
+    /**
+     * @OA\Get(
+     *     path="/api/v1/zeynab-ba/comptes-neon",
+     *     summary="Lister les comptes bloqués dans Neon",
+     *     description="Récupère la liste paginée des comptes bloqués stockés dans la base Neon. Ces comptes peuvent être débloqués dans les 2h suivant leur blocage.",
+     *     operationId="getNeonComptes",
+     *     tags={"Comptes"},
+     *     @OA\Parameter(
+     *         name="page",
+     *         in="query",
+     *         description="Numéro de la page",
+     *         required=false,
+     *         @OA\Schema(type="integer", default=1)
+     *     ),
+     *     @OA\Parameter(
+     *         name="limit",
+     *         in="query",
+     *         description="Nombre d'éléments par page (max 100)",
+     *         required=false,
+     *         @OA\Schema(type="integer", default=10, maximum=100)
+     *     ),
+     *     @OA\Parameter(
+     *         name="type",
+     *         in="query",
+     *         description="Filtrer par type de compte",
+     *         required=false,
+     *         @OA\Schema(type="string", enum={"cheque", "epargne"})
+     *     ),
+     *     @OA\Parameter(
+     *         name="statut",
+     *         in="query",
+     *         description="Filtrer par statut (toujours 'bloque' pour cet endpoint)",
+     *         required=false,
+     *         @OA\Schema(type="string", enum={"bloque"})
+     *     ),
+     *     @OA\Parameter(
+     *         name="search",
+     *         in="query",
+     *         description="Recherche par numéro de compte ou titulaire",
+     *         required=false,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Parameter(
+     *         name="sort",
+     *         in="query",
+     *         description="Champ de tri",
+     *         required=false,
+     *         @OA\Schema(type="string", enum={"numeroCompte", "solde", "dateCreation", "statut", "titulaire"})
+     *     ),
+     *     @OA\Parameter(
+     *         name="order",
+     *         in="query",
+     *         description="Ordre de tri",
+     *         required=false,
+     *         @OA\Schema(type="string", enum={"asc", "desc"}, default="asc")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Liste des comptes bloqués récupérée avec succès depuis Neon",
+     *         @OA\JsonContent(ref="#/components/schemas/ComptesResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Erreur serveur ou base Neon indisponible",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
+     */
+    public function neon(Request $request): JsonResponse
+    {
+        try {
+            // Vérifier que l'utilisateur est admin
+            $user = $request->user();
+            if (!$user || !$user->hasRole('admin')) {
+                return $this->errorResponse('Accès non autorisé aux comptes bloqués', 403);
+            }
+
+            $filters = $request->only(['type', 'statut', 'search', 'sort', 'order']);
+            $limit = min($request->get('limit', 10), 100);
+
+            // Forcer le filtre statut à 'bloque' pour cet endpoint
+            $filters['statut'] = 'bloque';
+
+            $neonService = app(NeonService::class);
+            $result = $neonService->listComptes($filters, $limit);
+
+            // Transformer les données pour le format uniforme
+            $comptesData = collect($result['data'])->map(function ($compte) {
+                return new CompteResource(collect($compte)->merge(['source' => 'neon']));
+            });
+
+            // Créer un objet paginator factice pour la compatibilité
+            $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
+                $comptesData,
+                $result['total'],
+                $result['pagination']['itemsPerPage'],
+                $result['pagination']['currentPage'],
+                ['path' => $request->url(), 'pageName' => 'page']
+            );
+
+            return $this->paginatedResponse(
+                $comptesData,
+                $paginator,
+                'Liste des comptes bloqués récupérée depuis Neon'
+            );
+
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la récupération des comptes Neon: ' . $e->getMessage());
+            return $this->errorResponse('Erreur lors de la récupération des comptes bloqués depuis Neon', 500);
         }
     }
 }

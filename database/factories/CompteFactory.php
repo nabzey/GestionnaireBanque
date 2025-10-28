@@ -20,7 +20,7 @@ class CompteFactory extends Factory
             'numero' => \App\Models\Compte::generateNumero(),
             'solde_initial' => $this->faker->randomFloat(2, 10000, 500000),
             'devise' => $this->faker->randomElement(['FCFA', 'EUR', 'USD']),
-            'type' => $this->faker->randomElement(['cheque', 'courant', 'epargne']),
+            'type' => $this->faker->randomElement(['cheque', 'epargne']),
             'client_id' => \App\Models\Client::factory(),
         ];
     }

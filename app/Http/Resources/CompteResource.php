@@ -19,11 +19,14 @@ class CompteResource extends JsonResource
             'numeroCompte' => $this->numero,
             'titulaire' => $this->client ? $this->client->nom_complet : null,
             'type' => $this->type,
-            'solde' => $this->solde_initial,
+            'solde' => $this->solde,
             'devise' => $this->devise,
             'dateCreation' => $this->created_at->toISOString(),
             'statut' => $this->statut,
             'motifBlocage' => $this->motif_blocage,
+            'dateDebutBlocage' => $this->date_debut_blocage?->toISOString(),
+            'dateFinBlocage' => $this->date_fin_blocage?->toISOString(),
+            'source' => $this->source ?? 'local',
             'metadata' => $this->metadata,
         ];
     }

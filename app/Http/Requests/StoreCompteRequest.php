@@ -24,7 +24,7 @@ class StoreCompteRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'type' => 'required|in:cheque,courant,epargne',
+            'type' => 'required|in:cheque,epargne',
             'soldeInitial' => 'required|numeric|min:10000',
             'devise' => 'required|in:FCFA,EUR,USD',
             'solde' => 'sometimes|numeric|min:0',
@@ -55,7 +55,7 @@ class StoreCompteRequest extends FormRequest
     {
         return [
             'type.required' => 'Le type de compte est obligatoire.',
-            'type.in' => 'Le type de compte doit être : cheque, courant ou epargne.',
+            'type.in' => 'Le type de compte doit être : cheque ou epargne.',
             'soldeInitial.required' => 'Le solde initial est obligatoire.',
             'soldeInitial.numeric' => 'Le solde initial doit être un nombre.',
             'soldeInitial.min' => 'Le solde initial doit être supérieur ou égal à 10 000.',

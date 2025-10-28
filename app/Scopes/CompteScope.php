@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Scope;
 class CompteScope implements Scope
 {
     /**
-     * Appliquer le scope global aux comptes actifs chèque/épargne
+     * Appliquer le scope global aux comptes non supprimés
      *
      * @param Builder $builder
      * @param Model $model
@@ -17,7 +17,8 @@ class CompteScope implements Scope
      */
     public function apply(Builder $builder, Model $model): void
     {
-        // Ne pas appliquer de filtre global pour permettre la flexibilité dans les requêtes API
-        // Les filtres seront appliqués au niveau du contrôleur selon les besoins
+        // Appliquer le filtre global pour comptes non supprimés uniquement
+        // Le filtrage par statut sera fait au niveau du contrôleur selon le rôle utilisateur
+        $builder->whereNull('deleted_at');
     }
 }

@@ -22,6 +22,8 @@ class Compte extends Model
         'type',
         'statut',
         'motif_blocage',
+        'date_debut_blocage',
+        'date_fin_blocage',
         'metadata',
         'client_id',
         'telephone',
@@ -30,6 +32,8 @@ class Compte extends Model
     protected $casts = [
         'solde_initial' => 'decimal:2',
         'metadata' => 'array',
+        'date_debut_blocage' => 'datetime',
+        'date_fin_blocage' => 'datetime',
     ];
 
     protected static function boot()
@@ -114,6 +118,63 @@ class Compte extends Model
         });
     }
 
+    public function scopeByClientId($query, $clientId)
+    {
+        return $query->where('client_id', $clientId);
+    }
+
+    /**
+     * Scope pour les comptes bloqués
+     */
+    public function scopeBlocked($query)
+    {
+        return $query->where('statut', 'bloque');
+    }
+
+    /**
+     * Vérifier si le compte est bloqué
+     */
+    public function isBlocked(): bool
+    {
+        return $this->statut === 'bloque';
+    }
+
+    /**
+     * Vérifier si le compte peut être bloqué (seulement épargne)
+     */
+    public function canBeBlocked(): bool
+    {
+        return $this->type === 'epargne' && $this->statut === 'actif';
+    }
+
+    /**
+     * Vérifier si le compte peut être débloqué (dans les 2h suivant le blocage)
+     */
+    public function canBeUnblocked(): bool
+    {
+        if (!$this->isBlocked() || !$this->date_debut_blocage) {
+            return false;
+        }
+
+        $twoHoursAfterBlock = $this->date_debut_blocage->copy()->addHours(2);
+        return now()->lessThanOrEqualTo($twoHoursAfterBlock);
+    }
+
+    /**
+     * Obtenir le temps restant avant expiration du délai de déblocage (en minutes)
+     */
+    public function getRemainingUnlockTime(): ?int
+    {
+        if (!$this->isBlocked() || !$this->date_debut_blocage) {
+            return null;
+        }
+
+        $twoHoursAfterBlock = $this->date_debut_blocage->copy()->addHours(2);
+        $remaining = now()->diffInMinutes($twoHoursAfterBlock, false);
+
+        return max(0, $remaining);
+    }
+
     // Scope pour la pagination et les filtres
     public function scopeFilterAndSort($query, array $filters = [])
     {
@@ -147,12 +208,12 @@ class Compte extends Model
             'numeroCompte' => 'numero',
             'dateCreation' => 'created_at',
             'solde' => 'solde_initial',
-            'titulaire' => 'client.nom',
+            'titulaire' => 'clients.nom',
         ];
 
         $actualSortField = $sortMapping[$sortField] ?? $sortField;
 
-        if ($actualSortField === 'client.nom') {
+        if ($actualSortField === 'clients.nom') {
             $query->join('clients', 'comptes.client_id', '=', 'clients.id')
                   ->orderBy('clients.nom', $sortOrder)
                   ->select('comptes.*');
