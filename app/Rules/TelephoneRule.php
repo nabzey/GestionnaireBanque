@@ -14,8 +14,8 @@ class TelephoneRule implements ValidationRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        // Formats acceptés: +221XXXXXXXXX, 221XXXXXXXXX, 77XXXXXXX, 78XXXXXXX, 76XXXXXXX, 70XXXXXXX
-        $pattern = '/^(\+221|221)?[67][0-9]{7}$/';
+        // Formats acceptés: +221XXXXXXXXX, 221XXXXXXXXX, 77XXXXXXX, 78XXXXXXX, 76XXXXXXX, 70XXXXXXX, 33XXXXXXX
+        $pattern = '/^(\+221|221)?[0-9]{9}$/';
 
         if (!preg_match($pattern, $value)) {
             $fail('Le numéro de téléphone doit être au format sénégalais valide (ex: +221771234567 ou 771234567).');

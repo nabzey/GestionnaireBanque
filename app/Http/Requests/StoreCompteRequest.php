@@ -23,19 +23,29 @@ class StoreCompteRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'type' => 'required|in:cheque,courant,epargne',
             'soldeInitial' => 'required|numeric|min:10000',
             'devise' => 'required|in:FCFA,EUR,USD',
             'solde' => 'sometimes|numeric|min:0',
-            'client' => 'required|array',
-            'client.id' => 'nullable|string|exists:clients,id',
-            'client.titulaire' => 'required_if:client.id,null|string|max:255',
-            'client.nci' => ['required_if:client.id,null', 'nullable', new NCIRule()],
-            'client.email' => 'required_if:client.id,null|email|unique:clients,email',
-            'client.telephone' => ['required', new TelephoneRule()],
-            'client.adresse' => 'nullable|string|max:500',
+            'telephone' => ['required', new TelephoneRule()],
+            'statut' => 'sometimes|in:actif,bloque,ferme',
         ];
+
+        // Si client_id est fourni, on valide qu'il existe
+        if ($this->has('client_id') && !empty($this->client_id)) {
+            $rules['client_id'] = 'required|string|exists:clients,id';
+        } else {
+            // Sinon, on valide les informations du nouveau client
+            $rules['client'] = 'required|array';
+            $rules['client.titulaire'] = 'required|string|max:255';
+            $rules['client.nci'] = ['required', new NCIRule()];
+            $rules['client.email'] = 'required|email|unique:clients,email';
+            $rules['client.telephone'] = ['required', new TelephoneRule()];
+            $rules['client.adresse'] = 'nullable|string|max:500';
+        }
+
+        return $rules;
     }
 
     /**
@@ -93,8 +103,12 @@ class StoreCompteRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        // Si client.id est null ou vide, on considère que c'est un nouveau client
-        if (empty($this->client['id'])) {
+        // Préparer les données selon le type de client
+        if ($this->has('client_id') && !empty($this->client_id)) {
+            // Client existant - pas besoin de client array
+            $this->merge(['client' => null]);
+        } elseif ($this->has('client') && is_array($this->client)) {
+            // Nouveau client - s'assurer que id est null
             $this->merge([
                 'client' => array_merge($this->client, ['id' => null])
             ]);

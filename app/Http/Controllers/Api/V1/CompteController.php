@@ -150,13 +150,20 @@ class CompteController extends Controller
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             required={"client_id", "telephone", "type", "devise"},
-     *             @OA\Property(property="client_id", type="string", format="uuid", description="ID du client propriétaire du compte"),
-     *             @OA\Property(property="telephone", type="string", description="Numéro de téléphone pour les notifications SMS"),
-     *             @OA\Property(property="type", type="string", enum={"cheque", "courant", "epargne"}, description="Type de compte"),
-     *             @OA\Property(property="devise", type="string", enum={"FCFA", "EUR", "USD"}, description="Devise du compte"),
-     *             @OA\Property(property="solde_initial", type="number", format="float", minimum=0, description="Solde initial du compte", default=0),
-     *             @OA\Property(property="statut", type="string", enum={"actif", "bloque", "ferme"}, description="Statut du compte", default="actif")
+     *             required={"telephone", "type", "soldeInitial", "devise"},
+     *             @OA\Property(property="client_id", type="string", format="uuid", description="ID du client existant (optionnel)", example="550e8400-e29b-41d4-a716-446655440000"),
+     *             @OA\Property(property="telephone", type="string", description="Numéro de téléphone pour les notifications SMS", example="+221771234567"),
+     *             @OA\Property(property="type", type="string", enum={"cheque", "courant", "epargne"}, description="Type de compte", example="cheque"),
+     *             @OA\Property(property="soldeInitial", type="number", format="float", minimum=10000, description="Solde initial du compte", example=25000),
+     *             @OA\Property(property="devise", type="string", enum={"FCFA", "EUR", "USD"}, description="Devise du compte", example="FCFA"),
+     *             @OA\Property(property="statut", type="string", enum={"actif", "bloque", "ferme"}, description="Statut du compte", example="actif", default="actif"),
+     *             @OA\Property(property="client", type="object", description="Informations du nouveau client (requis si client_id non fourni)",
+     *                 @OA\Property(property="titulaire", type="string", description="Nom complet du titulaire", example="Amadou Diop"),
+     *                 @OA\Property(property="nci", type="string", description="Numéro NCI", example="1234567890123"),
+     *                 @OA\Property(property="email", type="string", format="email", description="Email du client", example="amadou.diop@example.com"),
+     *                 @OA\Property(property="telephone", type="string", description="Téléphone du client", example="+221771234567"),
+     *                 @OA\Property(property="adresse", type="string", description="Adresse du client", example="123 Rue de la Paix, Dakar")
+     *             )
      *         )
      *     ),
      *     @OA\Response(
@@ -287,11 +294,14 @@ class CompteController extends Controller
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
+            Log::error('Validation error: ' . json_encode($e->errors()));
             return $this->errorResponse('Données invalides', 400, $e->errors());
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Erreur lors de la création du compte: ' . $e->getMessage());
-            return $this->errorResponse('Erreur lors de la création du compte', 500);
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::error('Request data: ' . json_encode($request->all()));
+            return $this->errorResponse('Erreur lors de la création du compte: ' . $e->getMessage(), 500);
         }
     }
 

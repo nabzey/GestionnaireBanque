@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('prenom');
             $table->string('email')->unique();
             $table->string('telephone')->unique();
+            $table->string('nci')->nullable();
             $table->date('date_naissance')->nullable();
             $table->string('adresse')->nullable();
             $table->string('ville')->nullable();
@@ -29,6 +30,7 @@ return new class extends Migration
             $table->index(['nom', 'prenom']);
             $table->index('email');
             $table->index('telephone');
+            $table->index('nci');
             $table->index('statut');
         });
     }
