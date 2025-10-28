@@ -219,14 +219,14 @@ return [
        
         'constants' => [
             'L5_SWAGGER_CONST_HOST' => env('L5_SWAGGER_CONST_HOST', env('APP_URL', 'http://localhost:8001')),
-            'L5_SWAGGER_CONST_PROD_HOST' => env('L5_SWAGGER_CONST_PROD_HOST', 'https://gestionnairebanque-6.onrender.com'),
+            'L5_SWAGGER_CONST_PROD_HOST' => env('L5_SWAGGER_CONST_PROD_HOST', 'https://gestionnairebanque-5lz2.onrender.com'),
             'L5_SWAGGER_SERVERS' => [
                 [
                     'url' => env('APP_URL', 'http://localhost:8001'),
                     'description' => 'Development server'
                 ],
                 [
-                    'url' => 'https://gestionnairebanque-6.onrender.com',
+                    'url' => 'https://gestionnairebanque-5lz2.onrender.com',
                     'description' => 'Production server'
                 ]
             ],
