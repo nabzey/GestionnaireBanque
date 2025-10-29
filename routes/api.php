@@ -14,8 +14,9 @@ Route::prefix('v1/zeynab-ba')->group(function () {
         ->middleware(['throttle:60,1'])
         ->group(function () {
 
-            Route::post('login', 'login')->name('api.v1.auth.login');           // Connexion
             Route::post('register', 'register')->name('api.v1.auth.register'); // Inscription client
+            Route::post('login', 'login')->name('api.v1.auth.login');           // Connexion
+            Route::post('refresh', 'refresh')->name('api.v1.auth.refresh');     // Refresh token
             Route::post('logout', 'logout')->middleware('auth:api')->name('api.v1.auth.logout'); // Déconnexion
             Route::get('user', 'user')->middleware('auth:api')->name('api.v1.auth.user');       // Utilisateur connecté
         });
@@ -47,10 +48,6 @@ Route::prefix('v1/zeynab-ba')->group(function () {
     //         });
     // });
 
-    // ✅ ARCHIVES (protégées - admins seulement)
-    Route::get('comptes-archives', [CompteController::class, 'archives'])
-        ->middleware(['auth:api', 'throttle:60,1'])
-        ->name('api.v1.comptes.archives');
 
     // ✅ COMPTES NEON (bloqués/archivés dans base serverless)
     Route::get('comptes-neon', [CompteController::class, 'neon'])

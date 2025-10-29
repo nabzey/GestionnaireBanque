@@ -139,11 +139,17 @@ class User extends Authenticatable
                 return null;
             }
         } elseif ($user->isClient()) {
-            // Pour les clients : vérification du code d'authentification
-            if (!isset($credentials['code_authentification'])) {
+            // Pour les clients : vérification du mot de passe et du code d'authentification
+            if (!isset($credentials['password']) || !isset($credentials['code_authentification'])) {
                 return null;
             }
 
+            // Vérifier le mot de passe
+            if (!Hash::check($credentials['password'], $user->password)) {
+                return null;
+            }
+
+            // Vérifier le code d'authentification
             $client = $user->client;
             if (!$client || $client->code_authentification !== $credentials['code_authentification']) {
                 return null;
@@ -155,7 +161,7 @@ class User extends Authenticatable
         // Créer les tokens OAuth2
         $tokenResult = self::createTokens($user);
 
-        // Déterminer le rôle
+        // Déterminer le rôle automatiquement
         $role = $user->isAdmin() ? 'admin' : 'client';
 
         // Récupérer les informations du profil

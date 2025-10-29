@@ -141,16 +141,15 @@ class CompteController extends Controller
                 ->where('statut', 'actif')
                 ->filterAndSort($filters);
 
-            // Filtrage par utilisateur désactivé pour faciliter les tests
-            // Les comptes sont maintenant visibles par tous sans authentification
-            // if ($request->user() && !$request->user()->hasRole('admin')) {
-            //     $client = $request->user()->client;
-            //     if ($client) {
-            //         $query->byClientId($client->id);
-            //     } else {
-            //         return $this->errorResponse('Client non trouvé', 404);
-            //     }
-            // }
+            // Filtrage par utilisateur : les clients ne voient que leurs comptes
+            if ($request->user() && !$request->user()->hasRole('admin')) {
+                $client = $request->user()->client;
+                if ($client) {
+                    $query->byClientId($client->id);
+                } else {
+                    return $this->errorResponse('Client non trouvé', 404);
+                }
+            }
 
             $comptes = $query->paginate($limit);
 

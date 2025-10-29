@@ -20,36 +20,59 @@
                 "tags": [
                     "Authentification"
                 ],
-                "summary": "Connexion utilisateur",
-                "description": "Authentifie un utilisateur (admin ou client)",
+                "summary": "Connexion utilisateur (Admin ou Client)",
+                "description": "Authentifie un utilisateur et retourne les tokens OAuth2. Le rôle (admin/client) est déterminé automatiquement selon les identifiants fournis.",
                 "operationId": "login",
                 "requestBody": {
                     "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
-                                "required": [
-                                    "email"
-                                ],
-                                "properties": {
-                                    "email": {
-                                        "description": "Adresse email de l'utilisateur",
-                                        "type": "string",
-                                        "format": "email",
-                                        "example": "admin@banque.com"
+                                "oneOf": [
+                                    {
+                                        "title": "Connexion Admin",
+                                        "required": [
+                                            "email",
+                                            "password"
+                                        ],
+                                        "properties": {
+                                            "email": {
+                                                "description": "Adresse email de l'admin",
+                                                "type": "string",
+                                                "format": "email",
+                                                "example": "admin@banque.com"
+                                            },
+                                            "password": {
+                                                "description": "Mot de passe de l'admin",
+                                                "type": "string",
+                                                "example": "password"
+                                            }
+                                        },
+                                        "type": "object"
                                     },
-                                    "password": {
-                                        "description": "Mot de passe (requis pour les admins)",
-                                        "type": "string",
-                                        "example": "password"
-                                    },
-                                    "code_authentification": {
-                                        "description": "Code d'authentification (requis pour les clients)",
-                                        "type": "string",
-                                        "example": "123456"
+                                    {
+                                        "title": "Connexion Client",
+                                        "required": [
+                                            "email",
+                                            "client_id"
+                                        ],
+                                        "properties": {
+                                            "email": {
+                                                "description": "Adresse email du client",
+                                                "type": "string",
+                                                "format": "email",
+                                                "example": "client@example.com"
+                                            },
+                                            "client_id": {
+                                                "description": "ID unique du client",
+                                                "type": "string",
+                                                "format": "uuid",
+                                                "example": "550e8400-e29b-41d4-a716-446655440000"
+                                            }
+                                        },
+                                        "type": "object"
                                     }
-                                },
-                                "type": "object"
+                                ]
                             }
                         }
                     }
@@ -72,7 +95,33 @@
                                         "data": {
                                             "properties": {
                                                 "user": {
-                                                    "$ref": "#/components/schemas/User"
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "string",
+                                                            "example": "1"
+                                                        },
+                                                        "name": {
+                                                            "type": "string",
+                                                            "example": "Admin Principal"
+                                                        },
+                                                        "email": {
+                                                            "type": "string",
+                                                            "example": "admin@banque.com"
+                                                        },
+                                                        "role": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "admin",
+                                                                "client"
+                                                            ],
+                                                            "example": "admin"
+                                                        },
+                                                        "profile": {
+                                                            "description": "Informations du profil selon le rôle",
+                                                            "type": "object"
+                                                        }
+                                                    },
+                                                    "type": "object"
                                                 },
                                                 "token": {
                                                     "type": "string",
@@ -239,6 +288,94 @@
                     },
                     "422": {
                         "description": "Données invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/zeynab-ba/auth/refresh": {
+            "post": {
+                "tags": [
+                    "Authentification"
+                ],
+                "summary": "Rafraîchir le token d'accès",
+                "description": "Utilise le refresh token pour générer un nouveau token d'accès",
+                "operationId": "refresh",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "refresh_token"
+                                ],
+                                "properties": {
+                                    "refresh_token": {
+                                        "description": "Le refresh token",
+                                        "type": "string",
+                                        "example": "refresh_token_here"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Token rafraîchi avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Token rafraîchi avec succès"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "token": {
+                                                    "type": "string",
+                                                    "example": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."
+                                                },
+                                                "token_type": {
+                                                    "type": "string",
+                                                    "example": "Bearer"
+                                                },
+                                                "expires_in": {
+                                                    "type": "integer",
+                                                    "example": 3600
+                                                },
+                                                "refresh_token": {
+                                                    "type": "string",
+                                                    "example": "new_refresh_token_here"
+                                                },
+                                                "expires_at": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2023-12-01T12:00:00Z"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Refresh token invalide",
                         "content": {
                             "application/json": {
                                 "schema": {

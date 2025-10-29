@@ -25,16 +25,26 @@ class AuthController extends Controller
      * @OA\Post(
      *     path="/api/v1/zeynab-ba/auth/login",
      *     tags={"Authentification"},
-     *     summary="Connexion utilisateur",
-     *     description="Authentifie un utilisateur (admin ou client) et retourne les tokens OAuth2",
+     *     summary="Connexion utilisateur (Admin ou Client)",
+     *     description="Authentifie un utilisateur et retourne les tokens OAuth2. Le rôle (admin/client) est déterminé automatiquement selon les identifiants fournis.",
      *     operationId="login",
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             required={"email"},
-     *             @OA\Property(property="email", type="string", format="email", description="Adresse email de l'utilisateur", example="admin@banque.com"),
-     *             @OA\Property(property="password", type="string", description="Mot de passe (requis pour les admins)", example="password"),
-     *             @OA\Property(property="code_authentification", type="string", description="Code d'authentification (requis pour les clients)", example="123456")
+     *             oneOf={
+     *                 @OA\Schema(
+     *                     title="Connexion Admin",
+     *                     required={"email", "password"},
+     *                     @OA\Property(property="email", type="string", format="email", description="Adresse email de l'admin", example="admin@banque.com"),
+     *                     @OA\Property(property="password", type="string", description="Mot de passe de l'admin", example="password")
+     *                 ),
+     *                 @OA\Schema(
+     *                     title="Connexion Client",
+     *                     required={"email", "client_id"},
+     *                     @OA\Property(property="email", type="string", format="email", description="Adresse email du client", example="client@example.com"),
+     *                     @OA\Property(property="client_id", type="string", format="uuid", description="ID unique du client", example="550e8400-e29b-41d4-a716-446655440000")
+     *                 )
+     *             }
      *         )
      *     ),
      *     @OA\Response(
@@ -44,7 +54,13 @@ class AuthController extends Controller
      *             @OA\Property(property="success", type="boolean", example=true),
      *             @OA\Property(property="message", type="string", example="Connexion réussie"),
      *             @OA\Property(property="data", type="object",
-     *                 @OA\Property(property="user", ref="#/components/schemas/User"),
+     *                 @OA\Property(property="user", type="object",
+     *                     @OA\Property(property="id", type="string", example="1"),
+     *                     @OA\Property(property="name", type="string", example="Admin Principal"),
+     *                     @OA\Property(property="email", type="string", example="admin@banque.com"),
+     *                     @OA\Property(property="role", type="string", enum={"admin", "client"}, example="admin"),
+     *                     @OA\Property(property="profile", type="object", description="Informations du profil selon le rôle")
+     *                 ),
      *                 @OA\Property(property="token", type="string", example="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."),
      *                 @OA\Property(property="token_type", type="string", example="Bearer"),
      *                 @OA\Property(property="expires_in", type="integer", example=3600),
@@ -70,7 +86,7 @@ class AuthController extends Controller
         // Validation différenciée selon le contexte
         $request->validate([
             'email' => 'required|email',
-            'password' => 'sometimes|required_without:code_authentification|string',
+            'password' => 'required|string',
             'code_authentification' => 'sometimes|required_without:password|string',
         ]);
 
@@ -148,14 +164,122 @@ class AuthController extends Controller
             'prenom' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
-            'telephone' => ['nullable', new \App\Rules\TelephoneRule()],
-            'nci' => 'nullable|string|size:13|regex:/^\d{13}$/',
+            'telephone' => ['required', new \App\Rules\TelephoneRule(), 'unique:clients,telephone'],
+            'nci' => 'required|string|size:13|regex:/^\d{13}$/|unique:clients,nci',
             'adresse' => 'nullable|string|max:500',
         ]);
 
         $registrationData = User::registerClient($request->all());
 
-        return $this->successResponse($registrationData, 'Inscription réussie');
+        // Envoyer l'email de confirmation
+        try {
+            \Illuminate\Support\Facades\Mail::to($registrationData['user']['email'])->send(
+                new \App\Mail\ClientRegistrationConfirmation($registrationData['user'], $registrationData['temporary_password'], $registrationData['code_authentification'])
+            );
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('Erreur lors de l\'envoi de l\'email de confirmation: ' . $e->getMessage());
+            // Ne pas échouer l'inscription si l'email échoue
+        }
+
+        return $this->successResponse($registrationData, 'Inscription réussie. Un email de confirmation a été envoyé.');
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/v1/zeynab-ba/auth/refresh",
+     *     tags={"Authentification"},
+     *     summary="Rafraîchir le token d'accès",
+     *     description="Utilise le refresh token pour générer un nouveau token d'accès",
+     *     operationId="refresh",
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"refresh_token"},
+     *             @OA\Property(property="refresh_token", type="string", description="Le refresh token", example="refresh_token_here")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Token rafraîchi avec succès",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Token rafraîchi avec succès"),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="token", type="string", example="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."),
+     *                 @OA\Property(property="token_type", type="string", example="Bearer"),
+     *                 @OA\Property(property="expires_in", type="integer", example=3600),
+     *                 @OA\Property(property="refresh_token", type="string", example="new_refresh_token_here"),
+     *                 @OA\Property(property="expires_at", type="string", format="date-time", example="2023-12-01T12:00:00Z")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Refresh token invalide",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
+     */
+    public function refresh(Request $request): JsonResponse
+    {
+        $request->validate([
+            'refresh_token' => 'required|string',
+        ]);
+
+        try {
+            // Trouver le token de refresh
+            $refreshToken = \Laravel\Passport\RefreshToken::where('id', $request->refresh_token)->first();
+
+            if (!$refreshToken) {
+                return $this->errorResponse('Refresh token invalide', 401);
+            }
+
+            // Vérifier si le token n'est pas expiré
+            if ($refreshToken->expires_at && $refreshToken->expires_at->isPast()) {
+                return $this->errorResponse('Refresh token expiré', 401);
+            }
+
+            // Récupérer l'utilisateur associé
+            $accessToken = $refreshToken->accessToken;
+            if (!$accessToken) {
+                return $this->errorResponse('Token d\'accès associé introuvable', 401);
+            }
+
+            $user = $accessToken->user;
+            if (!$user) {
+                return $this->errorResponse('Utilisateur introuvable', 401);
+            }
+
+            // Révoquer l'ancien token d'accès
+            $accessToken->revoke();
+
+            // Créer de nouveaux tokens
+            $tokenResult = User::createTokens($user);
+
+            // Créer un cookie sécurisé pour le nouveau token d'accès
+            $cookie = Cookie::make(
+                'access_token',
+                $tokenResult['access_token'],
+                config('passport.tokens_expire_in') / 60,
+                null,
+                null,
+                config('app.env') === 'production',
+                true,
+                false,
+                'Lax'
+            );
+
+            return $this->successResponse([
+                'token' => $tokenResult['access_token'],
+                'token_type' => 'Bearer',
+                'expires_in' => $tokenResult['expires_in'],
+                'refresh_token' => $tokenResult['refresh_token'],
+                'expires_at' => $tokenResult['expires_at'],
+            ], 'Token rafraîchi avec succès')->withCookie($cookie);
+
+        } catch (\Exception $e) {
+            return $this->errorResponse('Erreur lors du rafraîchissement du token', 500);
+        }
     }
 
     /**
