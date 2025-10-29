@@ -514,12 +514,16 @@ class CompteController extends Controller
 
             $compte = Compte::findOrFail($id);
 
-            // Gestion du blocage/déblocage
+            // Gestion du changement de statut
             if (isset($validated['statut'])) {
                 if ($validated['statut'] === 'bloque') {
-                    // BLOQUER un compte
-                    if (!$compte->canBeBlocked()) {
-                        return $this->errorResponse('Impossible de bloquer ce compte : seuls les comptes épargne actifs peuvent être bloqués', 400);
+                    // BLOQUER un compte - uniquement pour comptes épargne
+                    if ($compte->type !== 'epargne') {
+                        return $this->errorResponse('Impossible de bloquer ce compte : seuls les comptes épargne peuvent être bloqués', 400);
+                    }
+
+                    if ($compte->statut !== 'actif') {
+                        return $this->errorResponse('Impossible de bloquer ce compte : le compte doit être actif', 400);
                     }
 
                     if (!isset($validated['motif_blocage']) || empty($validated['motif_blocage'])) {
@@ -537,70 +541,31 @@ class CompteController extends Controller
                     $validated['date_debut_blocage'] = $dateDebut;
                     $validated['date_fin_blocage'] = $dateFin;
 
-                    // Préparer les données pour archivage dans Neon
-                    $compteData = [
-                        'id' => $compte->id,
-                        'numero' => $compte->numero,
-                        'solde_initial' => $compte->solde_initial,
-                        'devise' => $compte->devise,
-                        'type' => $compte->type,
-                        'statut' => 'bloque',
-                        'motif_blocage' => $validated['motif_blocage'],
-                        'date_debut_blocage' => $dateDebut,
-                        'date_fin_blocage' => $dateFin,
-                        'metadata' => json_encode($compte->metadata ?? []),
-                        'client_id' => $compte->client_id,
-                        'telephone' => $compte->telephone,
-                        'created_at' => $compte->created_at,
-                        'updated_at' => now(),
-                        'deleted_at' => null
-                    ];
-
-                    // Archiver dans Neon (si disponible)
-                    $archiveSuccess = $this->neonService->archiveCompte($compteData);
-
-                    if (!$archiveSuccess) {
-                        Log::warning("Archivage Neon échoué pour {$compte->numero}, compte reste en base locale avec statut 'bloque'");
-                        // Ne pas échouer l'opération, juste logger l'erreur
-                        // Le compte reste bloqué en base locale
-                    } else {
-                        // Supprimer de la base locale après archivage réussi
-                        $compte->delete(); // Soft delete
-                        Log::info("Compte {$compte->numero} archivé dans Neon et supprimé localement");
-                    }
+                    // Pour le moment, on ne touche pas à Neon - garder en local
+                    Log::info("Compte {$compte->numero} bloqué localement (Neon désactivé pour tests)");
 
                     // Envoyer notification SMS de blocage
                     try {
-                        $message = "Votre compte {$compte->numero} a été bloqué pour motif: {$validated['motif_blocage']}. Durée: {$validated['duree_blocage']} jours. Vous pouvez le débloquer dans les 2h.";
+                        $message = "Votre compte {$compte->numero} a été bloqué pour motif: {$validated['motif_blocage']}. Durée: {$validated['duree_blocage']} jours.";
                         $this->sendSmsNotification($compte->telephone, $message);
                         Log::info("SMS de blocage envoyé au {$compte->telephone}");
                     } catch (\Exception $e) {
                         Log::warning("Erreur envoi SMS blocage: " . $e->getMessage());
                     }
 
-                } elseif ($validated['statut'] === 'actif' && $compte->isBlocked()) {
-                    // DÉBLOQUER un compte - rechercher d'abord dans Neon
-                    $compteNeon = $this->neonService->findCompte($compte->id);
-
-                    if (!$compteNeon) {
-                        return $this->errorResponse('Compte non trouvé dans les archives', 404);
-                    }
-
+                } elseif ($validated['statut'] === 'actif' && $compte->statut === 'bloque') {
+                    // DÉBLOQUER un compte - pour le moment depuis local uniquement
                     // Vérifier que le déblocage est possible (dans les 2h)
-                    $dateDebutBlocage = isset($compteNeon['date_debut_blocage']) ? \Carbon\Carbon::parse($compteNeon['date_debut_blocage']) : null;
-                    if (!$dateDebutBlocage || $dateDebutBlocage->diffInHours(now()) > 2) {
+                    if ($compte->date_debut_blocage && $compte->date_debut_blocage->diffInHours(now()) > 2) {
                         return $this->errorResponse('Le délai de 2 heures pour le déblocage est dépassé', 400);
                     }
 
-                    // Restaurer depuis Neon vers la base locale
-                    $restoreSuccess = $this->neonService->restoreCompte($compte->id);
+                    // Nettoyer les champs de blocage
+                    $validated['motif_blocage'] = null;
+                    $validated['date_debut_blocage'] = null;
+                    $validated['date_fin_blocage'] = null;
 
-                    if (!$restoreSuccess) {
-                        return $this->errorResponse('Erreur lors de la restauration du compte', 500);
-                    }
-
-                    // Recharger le compte depuis la base locale maintenant restauré
-                    $compte->refresh();
+                    Log::info("Compte {$compte->numero} débloqué localement");
 
                     // Envoyer notification SMS de déblocage
                     try {
@@ -611,17 +576,32 @@ class CompteController extends Controller
                         Log::warning("Erreur envoi SMS déblocage: " . $e->getMessage());
                     }
 
-                } elseif ($validated['statut'] === 'actif' && !$compte->isBlocked()) {
-                    // Modification normale d'un compte actif
-                    // Pas de logique spéciale
+                } elseif ($validated['statut'] === 'ferme') {
+                    // FERMER un compte - changement de statut simple
+                    if ($compte->statut === 'bloque') {
+                        return $this->errorResponse('Impossible de fermer un compte bloqué', 400);
+                    }
+
+                    Log::info("Compte {$compte->numero} fermé");
+
+                } elseif ($validated['statut'] === 'actif') {
+                    // RÉACTIVER un compte fermé
+                    if ($compte->statut !== 'ferme') {
+                        return $this->errorResponse('Impossible de réactiver ce compte : seul un compte fermé peut être réactivé', 400);
+                    }
+
+                    Log::info("Compte {$compte->numero} réactivé");
+
                 } else {
-                    // Autres statuts (ferme) ou changements non autorisés
                     return $this->errorResponse('Changement de statut non autorisé', 400);
                 }
             } else {
                 // Modification normale (sans changement de statut)
-                if ($compte->isBlocked()) {
+                if ($compte->statut === 'bloque') {
                     return $this->errorResponse('Impossible de modifier un compte bloqué', 400);
+                }
+                if ($compte->statut === 'ferme') {
+                    return $this->errorResponse('Impossible de modifier un compte fermé', 400);
                 }
             }
 
@@ -745,8 +725,8 @@ class CompteController extends Controller
     /**
      * @OA\Get(
      *     path="/api/v1/zeynab-ba/comptes-archives",
-     *     summary="Lister les comptes archivés",
-     *     description="Récupère la liste paginée des comptes archivés (soft deleted).",
+     *     summary="Lister les comptes supprimés (soft deleted)",
+     *     description="Récupère la liste paginée des comptes supprimés (soft deleted) stockés en base locale.",
      *     operationId="getArchivedComptes",
      *     tags={"Comptes"},
      *     @OA\Parameter(
@@ -773,7 +753,7 @@ class CompteController extends Controller
      *     @OA\Parameter(
      *         name="statut",
      *         in="query",
-     *         description="Filtrer par statut",
+     *         description="Filtrer par statut au moment de la suppression",
      *         required=false,
      *         @OA\Schema(type="string", enum={"actif", "bloque", "ferme"})
      *     ),
@@ -800,7 +780,7 @@ class CompteController extends Controller
      *     ),
      *     @OA\Response(
      *         response=200,
-     *         description="Liste des comptes archivés récupérée avec succès",
+     *         description="Liste des comptes supprimés récupérée avec succès",
      *         @OA\JsonContent(ref="#/components/schemas/ComptesResponse")
      *     ),
      *     @OA\Response(
@@ -816,7 +796,9 @@ class CompteController extends Controller
             $filters = $request->only(['type', 'statut', 'search', 'sort', 'order']);
             $limit = min($request->get('limit', 10), 100);
 
+            // Utiliser withoutGlobalScopes() pour contourner le CompteScope global
             $comptes = Compte::with('client')
+                ->withoutGlobalScopes() // Désactive le scope global qui filtre deleted_at
                 ->onlyTrashed() // Récupère seulement les soft deleted
                 ->filterAndSort($filters)
                 ->paginate($limit);
@@ -824,7 +806,7 @@ class CompteController extends Controller
             return $this->paginatedResponse(
                 CompteResource::collection($comptes),
                 $comptes,
-                'Liste des comptes archivés récupérée depuis le cloud'
+                'Liste des comptes supprimés récupérée avec succès'
             );
 
         } catch (\Exception $e) {

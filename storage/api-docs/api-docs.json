@@ -603,8 +603,8 @@
                 "tags": [
                     "Comptes"
                 ],
-                "summary": "Lister les comptes archivés",
-                "description": "Récupère la liste paginée des comptes archivés (soft deleted).",
+                "summary": "Lister les comptes supprimés (soft deleted)",
+                "description": "Récupère la liste paginée des comptes supprimés (soft deleted) stockés en base locale.",
                 "operationId": "getArchivedComptes",
                 "parameters": [
                     {
@@ -644,7 +644,7 @@
                     {
                         "name": "statut",
                         "in": "query",
-                        "description": "Filtrer par statut",
+                        "description": "Filtrer par statut au moment de la suppression",
                         "required": false,
                         "schema": {
                             "type": "string",
@@ -697,7 +697,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Liste des comptes archivés récupérée avec succès",
+                        "description": "Liste des comptes supprimés récupérée avec succès",
                         "content": {
                             "application/json": {
                                 "schema": {
