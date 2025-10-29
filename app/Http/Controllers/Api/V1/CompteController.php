@@ -5,14 +5,20 @@ namespace App\Http\Controllers\Api\V1;
 use App\Exceptions\CompteException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CompteResource;
+use App\Models\Client;
 use App\Models\Compte;
+use App\Models\User;
 use App\Traits\ApiResponseTrait;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class CompteController extends Controller
 {
-    use ApiResponseTrait;
+    use ApiResponseTrait, AuthorizesRequests;
     public function index(Request $request): JsonResponse
     {
         try {
@@ -24,11 +30,11 @@ class CompteController extends Controller
             $query = Compte::with('client')
                 ->filterAndSort($filters);
 
-            // Si c'est un client (pas admin), filtrer uniquement ses comptes
+            // Vérification d'authentification et filtrage par utilisateur
             if ($request->user() && !$request->user()->hasRole('admin')) {
                 $client = $request->user()->client;
                 if ($client) {
-                    $query->where('client_id', $client->id);
+                    $query->byClientId($client->id);
                 } else {
                     return $this->errorResponse('Client non trouvé', 404);
                 }
@@ -102,15 +108,88 @@ class CompteController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
+            // Vérifier les autorisations
+            $this->authorize('create', Compte::class);
+
             $validated = $request->validate([
-                'client_id' => 'required|exists:clients,id',
-                'type' => 'required|in:cheque,courant,epargne',
+                'telephone' => ['required', new \App\Rules\TelephoneRule()],
+                'type' => 'required|in:cheque,epargne',
+                'soldeInitial' => 'required|numeric|min:10000',
                 'devise' => 'required|in:FCFA,EUR,USD',
-                'solde_initial' => 'numeric|min:0',
-                'statut' => 'in:actif,bloque,ferme'
+                'client' => 'required|array',
+                'client.titulaire' => 'required|string|min:2|max:255',
+                'client.nci' => 'required|string|size:13|regex:/^\d{13}$/',
+                'client.email' => 'required|email|unique:users,email',
+                'client.telephone' => ['required', new \App\Rules\TelephoneRule()],
+                'client.adresse' => 'nullable|string|max:500',
+                'client_id' => 'nullable|exists:clients,id'
             ]);
 
-            $compte = Compte::create($validated);
+            DB::beginTransaction();
+
+            $clientData = $validated['client'];
+
+            // Vérifier si le client existe ou le créer
+            if (empty($validated['client_id'])) {
+                // Créer un nouveau client
+                $temporaryPassword = Compte::generateCode();
+                $verificationCode = Compte::generateCode();
+
+                $client = Client::create([
+                    'nom' => $clientData['titulaire'],
+                    'prenom' => '', // On peut extraire le prénom du titulaire si nécessaire
+                    'email' => $clientData['email'],
+                    'telephone' => $validated['telephone'],
+                    'nci' => $clientData['nci'],
+                    'adresse' => $clientData['adresse'] ?? null,
+                    'statut' => 'actif',
+                ]);
+
+                // Créer l'utilisateur associé
+                $user = User::create([
+                    'name' => $clientData['titulaire'],
+                    'email' => $clientData['email'],
+                    'password' => Hash::make($temporaryPassword),
+                    'email_verified_at' => now(),
+                    'userable_type' => 'client',
+                    'userable_id' => $client->id,
+                ]);
+
+                $clientId = $client->id;
+                $userCreated = true;
+            } else {
+                // Utiliser le client existant
+                $client = Client::findOrFail($validated['client_id']);
+                $clientId = $client->id;
+                $temporaryPassword = null;
+                $verificationCode = null;
+                $userCreated = false;
+            }
+
+            // Créer le compte
+            $compte = Compte::create([
+                'client_id' => $clientId,
+                'numero' => Compte::generateNumero(),
+                'telephone' => $validated['telephone'],
+                'type' => $validated['type'],
+                'devise' => $validated['devise'],
+                'solde_initial' => $validated['soldeInitial'],
+                'statut' => 'actif',
+            ]);
+
+            DB::commit();
+
+            // Envoyer les notifications après la création réussie
+            if ($userCreated) {
+                try {
+                    // Déclencher l'événement pour les notifications
+                    \App\Events\SendClientNotification::dispatch($client, $compte, $temporaryPassword, $verificationCode);
+                } catch (\Exception $e) {
+                    // Log l'erreur d'email mais ne pas échouer la création du compte
+                    Log::warning('Erreur lors de l\'envoi des notifications: ' . $e->getMessage());
+                    // Le compte est créé avec succès même si l'email échoue
+                }
+            }
 
             $responseData = new CompteResource($compte);
             $responseData['_links'] = [
@@ -136,11 +215,28 @@ class CompteController extends Controller
                 ]
             ];
 
-            return $this->successResponse($responseData, 'Compte créé avec succès', 201);
+            $response = [
+                'success' => true,
+                'message' => 'Compte créé avec succès',
+                'data' => $responseData,
+            ];
+
+            // Ajouter les informations supplémentaires si un nouveau client a été créé
+            if ($userCreated) {
+                $response['credentials'] = [
+                    'email' => $clientData['email'],
+                    'temporary_password' => $temporaryPassword,
+                    'verification_code' => $verificationCode,
+                ];
+            }
+
+            return response()->json($response, 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
             return $this->errorResponse('Données invalides', 400, $e->errors());
         } catch (\Exception $e) {
+            DB::rollBack();
             return $this->errorResponse('Erreur lors de la création du compte', 500);
         }
     }
@@ -212,12 +308,9 @@ class CompteController extends Controller
         try {
             $compte = Compte::with('client')->findOrFail($id);
 
-            // Vérifier que le client ne peut voir que ses propres comptes
-            if ($request->user() && !$request->user()->hasRole('admin')) {
-                $client = $request->user()->client;
-                if (!$client || $compte->client_id !== $client->id) {
-                    return $this->errorResponse('Accès non autorisé à ce compte', 403);
-                }
+            // Vérifier les autorisations d'accès
+            if ($request->user()) {
+                $this->authorize('view', $compte);
             }
 
             $responseData = new CompteResource($compte);

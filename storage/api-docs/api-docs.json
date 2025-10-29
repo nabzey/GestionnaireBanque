@@ -9,6 +9,9 @@
         {
             "url": "http://localhost:8081",
             "description": "API server"
+        },
+        {
+            "url": "https://gestionnairebanque-5lz2.onrender.com"
         }
     ],
     "paths": {
