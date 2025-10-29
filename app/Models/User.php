@@ -128,12 +128,32 @@ class User extends Authenticatable
     {
         $user = self::where('email', $credentials['email'])->first();
 
-        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+        if (!$user) {
             return null;
         }
 
-        // Créer le token Passport
-        $token = $user->createToken('API Token')->accessToken;
+        // Logique d'authentification différenciée selon le type d'utilisateur
+        if ($user->isAdmin()) {
+            // Pour les admins : vérification du mot de passe hashé
+            if (!isset($credentials['password']) || !Hash::check($credentials['password'], $user->password)) {
+                return null;
+            }
+        } elseif ($user->isClient()) {
+            // Pour les clients : vérification du code d'authentification
+            if (!isset($credentials['code_authentification'])) {
+                return null;
+            }
+
+            $client = $user->client;
+            if (!$client || $client->code_authentification !== $credentials['code_authentification']) {
+                return null;
+            }
+        } else {
+            return null;
+        }
+
+        // Créer les tokens OAuth2
+        $tokenResult = self::createTokens($user);
 
         // Déterminer le rôle
         $role = $user->isAdmin() ? 'admin' : 'client';
@@ -158,8 +178,11 @@ class User extends Authenticatable
                 'role' => $role,
                 'profile' => $profile,
             ],
-            'token' => $token,
+            'token' => $tokenResult['access_token'],
             'token_type' => 'Bearer',
+            'expires_in' => $tokenResult['expires_in'],
+            'refresh_token' => $tokenResult['refresh_token'],
+            'expires_at' => $tokenResult['expires_at'],
         ];
     }
 
@@ -213,6 +236,25 @@ class User extends Authenticatable
     public static function generateTemporaryPassword(): string
     {
         return \Illuminate\Support\Str::random(8);
+    }
+
+    /**
+     * Créer les tokens OAuth2 (access + refresh)
+     */
+    public static function createTokens(User $user): array
+    {
+        // Créer le token d'accès
+        $accessToken = $user->createToken('API Token');
+
+        // Créer le token de refresh (30 jours)
+        $refreshToken = $user->createToken('Refresh Token', ['*'], now()->addDays(30));
+
+        return [
+            'access_token' => $accessToken->accessToken,
+            'refresh_token' => $refreshToken->accessToken,
+            'expires_in' => config('passport.tokens_expire_in'),
+            'expires_at' => now()->addSeconds(config('passport.tokens_expire_in'))->toISOString(),
+        ];
     }
 
     /**

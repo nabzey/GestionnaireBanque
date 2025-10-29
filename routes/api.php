@@ -22,10 +22,10 @@ Route::prefix('v1/zeynab-ba')->group(function () {
 
     // Routes protégées (nécessitent authentification)
 
-    // ✅ ROUTES COMPTES (temporairement sans authentification)
+    // ✅ ROUTES COMPTES (protégées par authentification)
     Route::controller(CompteController::class)
         ->prefix('comptes')
-        ->middleware(['throttle:60,1', \App\Http\Middleware\LoggingMiddleware::class])
+        ->middleware(['auth:api', 'throttle:60,1', \App\Http\Middleware\LoggingMiddleware::class])
         ->group(function () {
 
             Route::get('/', 'index')->name('api.v1.comptes.index');           // Liste des comptes
@@ -47,14 +47,14 @@ Route::prefix('v1/zeynab-ba')->group(function () {
     //         });
     // });
 
-    // ✅ ARCHIVES (temporairement sans authentification)
+    // ✅ ARCHIVES (protégées - admins seulement)
     Route::get('comptes-archives', [CompteController::class, 'archives'])
-        ->middleware(['throttle:60,1'])
+        ->middleware(['auth:api', 'throttle:60,1'])
         ->name('api.v1.comptes.archives');
 
     // ✅ COMPTES NEON (bloqués/archivés dans base serverless)
     Route::get('comptes-neon', [CompteController::class, 'neon'])
-        ->middleware(['throttle:60,1'])
+        ->middleware(['auth:api', 'throttle:60,1'])
         ->name('api.v1.comptes.neon');
 
     // ✅ TRANSACTIONS (protégées)

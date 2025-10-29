@@ -25,6 +25,7 @@ class Client extends Model
         'ville',
         'pays',
         'statut',
+        'code_authentification',
         'metadata',
     ];
 
