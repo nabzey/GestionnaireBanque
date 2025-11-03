@@ -13,6 +13,11 @@ class TransactionSeeder extends Seeder
      */
     public function run(): void
     {
+        // Vérifier si les transactions existent déjà
+        if (\App\Models\Transaction::count() > 0) {
+            return; // Ne pas recréer si déjà existant
+        }
+
         $faker = Faker::create();
 
         // Récupérer tous les comptes existants

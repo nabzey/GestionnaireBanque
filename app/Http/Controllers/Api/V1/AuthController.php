@@ -11,12 +11,6 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Validation\ValidationException;
 
-/**
- * @OA\Tag(
- *     name="Authentification",
- *     description="Gestion de l'authentification"
- * )
- */
 class AuthController extends Controller
 {
     use ApiResponseTrait;
@@ -40,9 +34,10 @@ class AuthController extends Controller
      *                 ),
      *                 @OA\Schema(
      *                     title="Connexion Client",
-     *                     required={"email", "client_id"},
+     *                     required={"email", "password", "code_authentification"},
      *                     @OA\Property(property="email", type="string", format="email", description="Adresse email du client", example="client@example.com"),
-     *                     @OA\Property(property="client_id", type="string", format="uuid", description="ID unique du client", example="550e8400-e29b-41d4-a716-446655440000")
+     *                     @OA\Property(property="password", type="string", description="Mot de passe du client", example="password"),
+     *                     @OA\Property(property="code_authentification", type="string", description="Code d'authentification du client", example="123456")
      *                 )
      *             }
      *         )
@@ -146,7 +141,8 @@ class AuthController extends Controller
      *                 @OA\Property(property="user", ref="#/components/schemas/User"),
      *                 @OA\Property(property="token", type="string", example="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."),
      *                 @OA\Property(property="token_type", type="string", example="Bearer"),
-     *                 @OA\Property(property="temporary_password", type="string", example="temp12345")
+     *                 @OA\Property(property="temporary_password", type="string", example="temp12345"),
+     *                 @OA\Property(property="code_authentification", type="string", example="123456")
      *             )
      *         )
      *     ),
@@ -320,18 +316,35 @@ class AuthController extends Controller
      * @OA\Get(
      *     path="/api/v1/zeynab-ba/auth/user",
      *     tags={"Authentification"},
-     *     summary="Informations utilisateur connecté",
-     *     description="Récupère les informations complètes de l'utilisateur actuellement connecté",
-     *     operationId="getUser",
+     *     summary="Récupération d'un client à partir du numéro tel",
+     *     description="Récupère les informations du client connecté à partir de son numéro de téléphone",
+     *     operationId="getUserByTelephone",
      *     security={{"bearerAuth":{}}},
      *     @OA\Response(
      *         response=200,
-     *         description="Informations récupérées avec succès",
+     *         description="Informations du client récupérées avec succès",
      *         @OA\JsonContent(
      *             @OA\Property(property="success", type="boolean", example=true),
-     *             @OA\Property(property="message", type="string", example="Informations utilisateur récupérées"),
+     *             @OA\Property(property="message", type="string", example="Informations du client récupérées avec succès"),
      *             @OA\Property(property="data", type="object",
-     *                 @OA\Property(property="user", ref="#/components/schemas/User")
+     *                 @OA\Property(property="client", type="object",
+     *                     @OA\Property(property="id", type="string", example="client-uuid"),
+     *                     @OA\Property(property="nom", type="string", example="ba"),
+     *                     @OA\Property(property="prenom", type="string", example="zeynab"),
+     *                     @OA\Property(property="email", type="string", example="zeynabba45@gmail.com"),
+     *                     @OA\Property(property="telephone", type="string", example="+221773657335"),
+     *                     @OA\Property(property="nci", type="string", example="2224567890123"),
+     *                     @OA\Property(property="statut", type="string", example="actif"),
+     *                     @OA\Property(property="comptes", type="array",
+     *                         @OA\Items(ref="#/components/schemas/Compte")
+     *                     )
+     *                 ),
+     *                 @OA\Property(property="permissions", type="object",
+     *                     @OA\Property(property="can_view_all_accounts", type="boolean", example=false),
+     *                     @OA\Property(property="can_manage_clients", type="boolean", example=false),
+     *                     @OA\Property(property="can_block_accounts", type="boolean", example=false),
+     *                     @OA\Property(property="can_view_own_accounts", type="boolean", example=true)
+     *                 )
      *             )
      *         )
      *     ),
@@ -339,14 +352,79 @@ class AuthController extends Controller
      *         response=401,
      *         description="Non authentifié",
      *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Client non trouvé",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
      *     )
      * )
      */
     public function user(Request $request): JsonResponse
     {
-        return $this->successResponse(
-            $request->user()->getFullInfo(),
-            'Informations utilisateur récupérées'
-        );
+        $user = $request->user();
+
+        // Pour les clients, récupérer les informations via le numéro de téléphone
+        if ($user->isClient()) {
+            $client = $user->client;
+
+            if (!$client) {
+                return $this->errorResponse('Client non trouvé', 404);
+            }
+
+            // Récupérer le client avec ses comptes
+            $clientWithComptes = \App\Models\Client::with('comptes')->find($client->id);
+
+            $clientData = [
+                'id' => $clientWithComptes->id,
+                'nom' => $clientWithComptes->nom,
+                'prenom' => $clientWithComptes->prenom,
+                'email' => $clientWithComptes->email,
+                'telephone' => $clientWithComptes->telephone,
+                'nci' => $clientWithComptes->nci,
+                'statut' => $clientWithComptes->statut,
+                'comptes' => $clientWithComptes->comptes->map(function ($compte) {
+                    return [
+                        'id' => $compte->id,
+                        'numero' => $compte->numero,
+                        'type' => $compte->type,
+                        'solde_initial' => $compte->solde_initial,
+                        'statut' => $compte->statut,
+                        'devise' => $compte->devise,
+                    ];
+                })
+            ];
+
+            // Permissions pour les clients
+            $permissions = [
+                'can_view_all_accounts' => false,
+                'can_manage_clients' => false,
+                'can_block_accounts' => false,
+                'can_view_own_accounts' => true,
+            ];
+
+            return $this->successResponse([
+                'client' => $clientData,
+                'permissions' => $permissions
+            ], 'Informations du client récupérées avec succès');
+
+        } else {
+            // Pour les admins, garder l'ancien comportement
+            $userInfo = $user->getFullInfo();
+
+            $permissions = [
+                'can_view_all_accounts' => true,
+                'can_manage_clients' => true,
+                'can_block_accounts' => true,
+                'can_view_own_accounts' => false,
+            ];
+
+            $userInfo['permissions'] = $permissions;
+
+            return $this->successResponse(
+                $userInfo,
+                'Informations utilisateur récupérées'
+            );
+        }
     }
 }

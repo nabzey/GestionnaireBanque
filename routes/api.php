@@ -31,6 +31,7 @@ Route::prefix('v1/zeynab-ba')->group(function () {
 
             Route::get('/', 'index')->name('api.v1.comptes.index');           // Liste des comptes
             Route::post('/', 'store')->name('api.v1.comptes.store');  // Création
+            Route::get('/numero/{numero}', 'getByNumero')->name('api.v1.comptes.numero'); // Récupérer par numéro
             Route::get('/{id}', 'show')->name('api.v1.comptes.show');         // Afficher un compte
             Route::put('/{id}', 'update')->name('api.v1.comptes.update'); // Modifier/Bloquer/Débloquer
             Route::delete('/{id}', 'destroy')->name('api.v1.comptes.destroy'); // Supprimer
@@ -48,6 +49,20 @@ Route::prefix('v1/zeynab-ba')->group(function () {
     //         });
     // });
 
+
+    // ✅ CLIENTS (protégés par authentification)
+    Route::controller(\App\Http\Controllers\Api\V1\ClientController::class)
+        ->prefix('clients')
+        ->middleware(['auth:api', 'throttle:60,1', \App\Http\Middleware\LoggingMiddleware::class])
+        ->group(function () {
+
+            Route::get('/', 'index')->name('api.v1.clients.index');           // Liste des clients
+            Route::post('/', 'store')->name('api.v1.clients.store');  // Création
+            Route::get('/telephone/{telephone}', 'getByTelephone')->name('api.v1.clients.telephone'); // Récupérer par téléphone
+            Route::get('/{id}', 'show')->name('api.v1.clients.show');         // Afficher un client
+            Route::put('/{id}', 'update')->name('api.v1.clients.update'); // Modifier
+            Route::delete('/{id}', 'destroy')->name('api.v1.clients.destroy'); // Supprimer
+        });
 
     // ✅ COMPTES NEON (bloqués/archivés dans base serverless)
     Route::get('comptes-neon', [CompteController::class, 'neon'])

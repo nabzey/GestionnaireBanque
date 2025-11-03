@@ -18,6 +18,11 @@ class ClientController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
+            // Vérifier les autorisations : seuls les admins peuvent voir tous les clients
+            if ($request->user() && !$request->user()->hasRole('admin')) {
+                return $this->errorResponse('Accès non autorisé', 403);
+            }
+
             $filters = $request->only(['statut', 'search', 'sort', 'order']);
             $limit = min($request->get('limit', 10), 100);
 
@@ -65,7 +70,7 @@ class ClientController extends Controller
                 ]
             ];
 
-            return $this->successResponse($responseData, 'Client créé avec succès', 201);
+            return $this->successResponse($responseData, 'Client créé avec succès');
 
         } catch (\Exception $e) {
             return $this->errorResponse('Erreur lors de la création du client', 500);
@@ -76,6 +81,14 @@ class ClientController extends Controller
     {
         try {
             $client = Client::with('comptes')->findOrFail($id);
+
+            // Vérifier les autorisations : les clients ne peuvent voir que leur propre profil
+            if ($request->user() && !$request->user()->hasRole('admin')) {
+                $userClient = $request->user()->client;
+                if (!$userClient || $userClient->id !== $client->id) {
+                    return $this->errorResponse('Accès non autorisé à ce profil client', 403);
+                }
+            }
 
             $responseData = new ClientResource($client);
             $responseData['_links'] = [
@@ -114,6 +127,15 @@ class ClientController extends Controller
     {
         try {
             $client = Client::findOrFail($id);
+
+            // Vérifier les autorisations : les clients ne peuvent modifier que leur propre profil
+            if ($request->user() && !$request->user()->hasRole('admin')) {
+                $userClient = $request->user()->client;
+                if (!$userClient || $userClient->id !== $client->id) {
+                    return $this->errorResponse('Accès non autorisé à la modification de ce profil client', 403);
+                }
+            }
+
             $validated = $request->validated();
 
             $client->update($validated);
@@ -151,10 +173,61 @@ class ClientController extends Controller
         }
     }
 
+    /**
+     * Récupérer un client par numéro de téléphone
+     */
+    public function getByTelephone(Request $request, string $telephone): JsonResponse
+    {
+        try {
+            // Validation du format de téléphone passé en paramètre d'URL
+            if (!preg_match('/^\+221\d{9}$/', $telephone)) {
+                return $this->errorResponse('Format de numéro de téléphone invalide', 400);
+            }
+
+            $client = Client::with('comptes')->telephone($telephone)->first();
+
+            if (!$client) {
+                return $this->errorResponse('Client non trouvé avec ce numéro de téléphone', 404);
+            }
+
+            $responseData = new ClientResource($client);
+            $responseData['_links'] = [
+                'self' => [
+                    'href' => url('/api/v1/clients/' . $client->id),
+                    'method' => 'GET',
+                    'rel' => 'self'
+                ],
+                'update' => [
+                    'href' => url('/api/v1/clients/' . $client->id),
+                    'method' => 'PUT',
+                    'rel' => 'update'
+                ],
+                'collection' => [
+                    'href' => url('/api/v1/clients'),
+                    'method' => 'GET',
+                    'rel' => 'collection'
+                ]
+            ];
+
+            return $this->successResponse($responseData, 'Client récupéré avec succès');
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return $this->errorResponse('Format de numéro de téléphone invalide', 400, $e->errors());
+        } catch (\Exception $e) {
+            return $this->errorResponse('Erreur lors de la récupération du client', 500);
+        }
+    }
+
     public function destroy(string $id): JsonResponse
     {
         try {
             $client = Client::findOrFail($id);
+
+            // Vérifier les autorisations : seuls les admins peuvent supprimer des clients
+            if (request()->user() && !request()->user()->hasRole('admin')) {
+                return $this->errorResponse('Accès non autorisé à la suppression de clients', 403);
+            }
+
             $client->delete(); // Soft delete
 
             $responseData = [

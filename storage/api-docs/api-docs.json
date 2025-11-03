@@ -54,7 +54,8 @@
                                         "title": "Connexion Client",
                                         "required": [
                                             "email",
-                                            "client_id"
+                                            "password",
+                                            "code_authentification"
                                         ],
                                         "properties": {
                                             "email": {
@@ -63,11 +64,15 @@
                                                 "format": "email",
                                                 "example": "client@example.com"
                                             },
-                                            "client_id": {
-                                                "description": "ID unique du client",
+                                            "password": {
+                                                "description": "Mot de passe du client",
                                                 "type": "string",
-                                                "format": "uuid",
-                                                "example": "550e8400-e29b-41d4-a716-446655440000"
+                                                "example": "password"
+                                            },
+                                            "code_authentification": {
+                                                "description": "Code d'authentification du client",
+                                                "type": "string",
+                                                "example": "123456"
                                             }
                                         },
                                         "type": "object"
@@ -276,6 +281,10 @@
                                                 "temporary_password": {
                                                     "type": "string",
                                                     "example": "temp12345"
+                                                },
+                                                "code_authentification": {
+                                                    "type": "string",
+                                                    "example": "123456"
                                                 }
                                             },
                                             "type": "object"
@@ -439,12 +448,12 @@
                 "tags": [
                     "Authentification"
                 ],
-                "summary": "Informations utilisateur connecté",
-                "description": "Récupère les informations complètes de l'utilisateur actuellement connecté",
-                "operationId": "getUser",
+                "summary": "Récupération d'un client à partir du numéro tel",
+                "description": "Récupère les informations du client connecté à partir de son numéro de téléphone",
+                "operationId": "getUserByTelephone",
                 "responses": {
                     "200": {
-                        "description": "Informations récupérées avec succès",
+                        "description": "Informations du client récupérées avec succès",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -455,12 +464,69 @@
                                         },
                                         "message": {
                                             "type": "string",
-                                            "example": "Informations utilisateur récupérées"
+                                            "example": "Informations du client récupérées avec succès"
                                         },
                                         "data": {
                                             "properties": {
-                                                "user": {
-                                                    "$ref": "#/components/schemas/User"
+                                                "client": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "string",
+                                                            "example": "client-uuid"
+                                                        },
+                                                        "nom": {
+                                                            "type": "string",
+                                                            "example": "ba"
+                                                        },
+                                                        "prenom": {
+                                                            "type": "string",
+                                                            "example": "zeynab"
+                                                        },
+                                                        "email": {
+                                                            "type": "string",
+                                                            "example": "zeynabba45@gmail.com"
+                                                        },
+                                                        "telephone": {
+                                                            "type": "string",
+                                                            "example": "+221773657335"
+                                                        },
+                                                        "nci": {
+                                                            "type": "string",
+                                                            "example": "2224567890123"
+                                                        },
+                                                        "statut": {
+                                                            "type": "string",
+                                                            "example": "actif"
+                                                        },
+                                                        "comptes": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "$ref": "#/components/schemas/Compte"
+                                                            }
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "permissions": {
+                                                    "properties": {
+                                                        "can_view_all_accounts": {
+                                                            "type": "boolean",
+                                                            "example": false
+                                                        },
+                                                        "can_manage_clients": {
+                                                            "type": "boolean",
+                                                            "example": false
+                                                        },
+                                                        "can_block_accounts": {
+                                                            "type": "boolean",
+                                                            "example": false
+                                                        },
+                                                        "can_view_own_accounts": {
+                                                            "type": "boolean",
+                                                            "example": true
+                                                        }
+                                                    },
+                                                    "type": "object"
                                                 }
                                             },
                                             "type": "object"
@@ -473,6 +539,16 @@
                     },
                     "401": {
                         "description": "Non authentifié",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Client non trouvé",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1055,6 +1131,92 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Erreur serveur",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/zeynab-ba/comptes/numero/{numero}": {
+            "get": {
+                "tags": [
+                    "Comptes"
+                ],
+                "summary": "Récupérer un compte par numéro",
+                "description": "Récupère les détails d'un compte bancaire spécifique en utilisant son numéro de compte.",
+                "operationId": "getCompteByNumero",
+                "parameters": [
+                    {
+                        "name": "numero",
+                        "in": "path",
+                        "description": "Numéro du compte bancaire",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "CPT-TEST001"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Détails du compte récupérés avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Détails du compte récupérés avec succès"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/CompteWithLinks"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Compte non trouvé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "error": {
+                                            "properties": {
+                                                "code": {
+                                                    "type": "string",
+                                                    "example": "COMPTE_NOT_FOUND"
+                                                },
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "Le compte avec le numéro spécifié n'existe pas"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
@@ -1694,12 +1856,12 @@
     },
     "tags": [
         {
-            "name": "Authentification",
-            "description": "Gestion de l'authentification"
-        },
-        {
             "name": "Comptes",
             "description": "Gestion des comptes bancaires"
+        },
+        {
+            "name": "Authentification",
+            "description": "Authentification"
         }
     ],
     "security": [

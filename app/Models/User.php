@@ -222,6 +222,10 @@ class User extends Authenticatable
         // Créer le token
         $token = $user->createToken('API Token')->accessToken;
 
+        // Générer un code d'authentification
+        $codeAuthentification = \App\Models\Compte::generateCode();
+        $client->update(['code_authentification' => $codeAuthentification]);
+
         return [
             'user' => [
                 'id' => $user->id,
@@ -233,6 +237,7 @@ class User extends Authenticatable
             'token' => $token,
             'token_type' => 'Bearer',
             'temporary_password' => $temporaryPassword,
+            'code_authentification' => $codeAuthentification,
         ];
     }
 

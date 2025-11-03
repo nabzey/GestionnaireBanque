@@ -723,6 +723,107 @@ class CompteController extends Controller
 
     /**
      * @OA\Get(
+     *     path="/api/v1/zeynab-ba/comptes/numero/{numero}",
+     *     summary="Récupérer un compte par numéro",
+     *     description="Récupère les détails d'un compte bancaire spécifique en utilisant son numéro de compte.",
+     *     operationId="getCompteByNumero",
+     *     tags={"Comptes"},
+     *     @OA\Parameter(
+     *         name="numero",
+     *         in="path",
+     *         required=true,
+     *         description="Numéro du compte bancaire",
+     *         @OA\Schema(type="string", example="CPT-TEST001")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Détails du compte récupérés avec succès",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Détails du compte récupérés avec succès"),
+     *             @OA\Property(property="data", ref="#/components/schemas/CompteWithLinks")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Compte non trouvé",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="object",
+     *                 @OA\Property(property="code", type="string", example="COMPTE_NOT_FOUND"),
+     *                 @OA\Property(property="message", type="string", example="Le compte avec le numéro spécifié n'existe pas")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Erreur serveur",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
+     */
+    public function getByNumero(Request $request, string $numero): JsonResponse
+    {
+        try {
+            // Validation du numéro de compte - pas de format spécifique requis
+            if (empty($numero)) {
+                return $this->errorResponse('Le numéro de compte est requis.', 400);
+            }
+
+            // 1. Recherche en base locale d'abord (comptes actifs uniquement)
+            $compte = Compte::with('client')->where('numero', $numero)->first();
+
+            if ($compte) {
+                // Vérifier les autorisations : les clients ne voient que leurs comptes
+                if ($request->user() && !$request->user()->hasRole('admin')) {
+                    $client = $request->user()->client;
+                    if (!$client || $compte->client_id !== $client->id) {
+                        return $this->errorResponse('Accès non autorisé à ce compte', 403);
+                    }
+                }
+
+                // Ajouter l'indicateur de source
+                $compte->source = 'local';
+
+                return $this->successResponse(
+                    new CompteResource($compte),
+                    'Détails du compte récupérés avec succès'
+                );
+            }
+
+            // 2. Si pas trouvé en local, rechercher dans Neon (comptes bloqués/archivés)
+            if ($this->neonService->isConnected()) {
+                $compteNeon = $this->neonService->findCompte($numero); // Utiliser findCompte existant
+
+                if ($compteNeon) {
+                    // Créer un objet Compte temporaire pour la resource
+                    $compteObject = new Compte($compteNeon);
+                    $compteObject->source = 'neon';
+
+                    // Ajouter les relations manuellement
+                    if (isset($compteNeon['client'])) {
+                        $client = new Client($compteNeon['client']);
+                        $compteObject->setRelation('client', $client);
+                    }
+
+                    return $this->successResponse(
+                        new CompteResource($compteObject),
+                        'Détails du compte récupérés depuis les archives'
+                    );
+                }
+            }
+
+            // 3. Compte non trouvé dans aucune source
+            return $this->errorResponse('Le compte avec le numéro spécifié n\'existe pas', 404);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur dans getByNumero compte: ' . $e->getMessage());
+            return $this->errorResponse('Erreur lors de la récupération du compte', 500);
+        }
+    }
+
+    /**
+     * @OA\Get(
      *     path="/api/v1/zeynab-ba/comptes-archives",
      *     summary="Lister les comptes supprimés (soft deleted)",
      *     description="Récupère la liste paginée des comptes supprimés (soft deleted) stockés en base locale.",
