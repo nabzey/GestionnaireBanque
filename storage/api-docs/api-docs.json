@@ -448,12 +448,12 @@
                 "tags": [
                     "Authentification"
                 ],
-                "summary": "Récupération d'un client à partir du numéro tel",
-                "description": "Récupère les informations du client connecté à partir de son numéro de téléphone",
-                "operationId": "getUserByTelephone",
+                "summary": "Informations utilisateur connecté",
+                "description": "Récupère les informations complètes de l'utilisateur actuellement connecté",
+                "operationId": "getUser",
                 "responses": {
                     "200": {
-                        "description": "Informations du client récupérées avec succès",
+                        "description": "Informations récupérées avec succès",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -464,64 +464,24 @@
                                         },
                                         "message": {
                                             "type": "string",
-                                            "example": "Informations du client récupérées avec succès"
+                                            "example": "Informations utilisateur récupérées"
                                         },
                                         "data": {
                                             "properties": {
-                                                "client": {
-                                                    "properties": {
-                                                        "id": {
-                                                            "type": "string",
-                                                            "example": "client-uuid"
-                                                        },
-                                                        "nom": {
-                                                            "type": "string",
-                                                            "example": "ba"
-                                                        },
-                                                        "prenom": {
-                                                            "type": "string",
-                                                            "example": "zeynab"
-                                                        },
-                                                        "email": {
-                                                            "type": "string",
-                                                            "example": "zeynabba45@gmail.com"
-                                                        },
-                                                        "telephone": {
-                                                            "type": "string",
-                                                            "example": "+221773657335"
-                                                        },
-                                                        "nci": {
-                                                            "type": "string",
-                                                            "example": "2224567890123"
-                                                        },
-                                                        "statut": {
-                                                            "type": "string",
-                                                            "example": "actif"
-                                                        },
-                                                        "comptes": {
-                                                            "type": "array",
-                                                            "items": {
-                                                                "$ref": "#/components/schemas/Compte"
-                                                            }
-                                                        }
-                                                    },
-                                                    "type": "object"
+                                                "user": {
+                                                    "$ref": "#/components/schemas/User"
                                                 },
                                                 "permissions": {
                                                     "properties": {
                                                         "can_view_all_accounts": {
                                                             "type": "boolean",
-                                                            "example": false
+                                                            "example": true
                                                         },
                                                         "can_manage_clients": {
                                                             "type": "boolean",
-                                                            "example": false
+                                                            "example": true
                                                         },
                                                         "can_block_accounts": {
-                                                            "type": "boolean",
-                                                            "example": false
-                                                        },
-                                                        "can_view_own_accounts": {
                                                             "type": "boolean",
                                                             "example": true
                                                         }
@@ -539,16 +499,6 @@
                     },
                     "401": {
                         "description": "Non authentifié",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Client non trouvé",
                         "content": {
                             "application/json": {
                                 "schema": {

@@ -316,34 +316,22 @@ class AuthController extends Controller
      * @OA\Get(
      *     path="/api/v1/zeynab-ba/auth/user",
      *     tags={"Authentification"},
-     *     summary="Récupération d'un client à partir du numéro tel",
-     *     description="Récupère les informations du client connecté à partir de son numéro de téléphone",
-     *     operationId="getUserByTelephone",
+     *     summary="Informations utilisateur connecté",
+     *     description="Récupère les informations complètes de l'utilisateur actuellement connecté",
+     *     operationId="getUser",
      *     security={{"bearerAuth":{}}},
      *     @OA\Response(
      *         response=200,
-     *         description="Informations du client récupérées avec succès",
+     *         description="Informations récupérées avec succès",
      *         @OA\JsonContent(
      *             @OA\Property(property="success", type="boolean", example=true),
-     *             @OA\Property(property="message", type="string", example="Informations du client récupérées avec succès"),
+     *             @OA\Property(property="message", type="string", example="Informations utilisateur récupérées"),
      *             @OA\Property(property="data", type="object",
-     *                 @OA\Property(property="client", type="object",
-     *                     @OA\Property(property="id", type="string", example="client-uuid"),
-     *                     @OA\Property(property="nom", type="string", example="ba"),
-     *                     @OA\Property(property="prenom", type="string", example="zeynab"),
-     *                     @OA\Property(property="email", type="string", example="zeynabba45@gmail.com"),
-     *                     @OA\Property(property="telephone", type="string", example="+221773657335"),
-     *                     @OA\Property(property="nci", type="string", example="2224567890123"),
-     *                     @OA\Property(property="statut", type="string", example="actif"),
-     *                     @OA\Property(property="comptes", type="array",
-     *                         @OA\Items(ref="#/components/schemas/Compte")
-     *                     )
-     *                 ),
+     *                 @OA\Property(property="user", ref="#/components/schemas/User"),
      *                 @OA\Property(property="permissions", type="object",
-     *                     @OA\Property(property="can_view_all_accounts", type="boolean", example=false),
-     *                     @OA\Property(property="can_manage_clients", type="boolean", example=false),
-     *                     @OA\Property(property="can_block_accounts", type="boolean", example=false),
-     *                     @OA\Property(property="can_view_own_accounts", type="boolean", example=true)
+     *                     @OA\Property(property="can_view_all_accounts", type="boolean", example=true),
+     *                     @OA\Property(property="can_manage_clients", type="boolean", example=true),
+     *                     @OA\Property(property="can_block_accounts", type="boolean", example=true)
      *                 )
      *             )
      *         )
@@ -351,11 +339,6 @@ class AuthController extends Controller
      *     @OA\Response(
      *         response=401,
      *         description="Non authentifié",
-     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
-     *     ),
-     *     @OA\Response(
-     *         response=404,
-     *         description="Client non trouvé",
      *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
      *     )
      * )
